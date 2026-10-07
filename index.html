@@ -172,6 +172,8 @@ function render(){
       ${u.is_admin?`<button class="nav" data-act="newproj">+ Проект</button><button class="nav" data-act="members" aria-current="${ui.view==='members'}">Доступ</button>`:''}
     </nav>
     <div class="viewer"><b>${esc(u.name)}</b>
+      ${u.tg_chat_id?`<span class="tg-ok">✓ Telegram подключён</span><button class="btn ghost" data-act="tgoff" style="text-align:left;padding-left:0">Отключить Telegram</button>`
+        :`<button class="btn" data-act="tgon" style="margin:8px 0">Подключить Telegram</button>`}
       <button class="btn ghost" data-act="logout" style="text-align:left;padding-left:0">Выйти</button></div>
   </aside>
   <main>${ui.error?`<p class="empty">${esc(ui.error)}</p>`:ui.view==='members'?viewMembers():viewProject()}</main>`;
@@ -219,9 +221,10 @@ function subtasks(s,u){
 }
 function viewMembers(){
   return`<div class="phead"><h1>Доступ</h1></div>
-  <div class="tbl"><table><thead><tr><th>Человек</th><th>Видит проекты</th><th></th></tr></thead><tbody>
+  <div class="tbl"><table><thead><tr><th>Человек</th><th>Видит проекты</th><th>Telegram</th><th></th></tr></thead><tbody>
   ${D.members.map(m=>`<tr><td>${esc(m.name)}${m.is_admin?' <span class="hint">админ</span>':''}</td>
    <td>${m.is_admin?'<span class="hint">все</span>':D.projects.length?D.projects.map(p=>`<label><input type="checkbox" data-act="mp" data-id="${m.id}" data-v="${p.id}" ${inProj(m.id,p.id)?'checked':''}>${esc(p.name)}</label>`).join(''):'<span class="hint">проектов нет</span>'}</td>
+   <td>${m.tg_chat_id?`<span class="tg-ok">✓ ${m.tg_username?'@'+esc(m.tg_username):'подключён'}</span>`:'<span class="hint">не подключён</span>'}</td>
    <td>${m.is_admin?'':`<button class="btn ghost" data-act="rm" data-id="${m.id}">Убрать</button>`}</td></tr>`).join('')}
   </tbody></table></div>
   <p class="hint">Статусы, комментарии и список подзадач меняешь только ты. Остальные видят открытые им проекты, пишут заметки и отмечают подзадачи.</p>`;
@@ -236,6 +239,15 @@ document.addEventListener('click',async e=>{
   else if(a==='toggle'){ui.open[id]=!ui.open[id];render()}
   else if(a==='again'){ui.sent=null;render()}
   else if(a==='logout'){await sb.auth.signOut()}
+  else if(a==='tgon'){
+    // Вкладку открываем сразу по клику, иначе браузер заблокирует её после ожидания кода.
+    const w=window.open('','_blank');
+    const {data:code,error}=await sb.rpc('tg_link_code');
+    if(error||!code){w?.close();console.error(error);toast('Не получилось. Попробуй ещё раз');return}
+    const url=`https://t.me/${window.TELEGRAM_BOT}?start=${code}`;
+    if(w)w.location.href=url;else location.href=url;
+    ui.tgWait=true}
+  else if(a==='tgoff'){D.me.tg_chat_id=null;D.me.tg_username=null;render();run(sb.rpc('tg_unlink'))}
   else if(a==='st'){const s=D.stages.find(x=>x.id===id);s.status=el.dataset.v;render();
     run(sb.from('stages').update({status:s.status}).eq('id',id))}
   else if(a==='deltask'){e.preventDefault();D.subtasks=D.subtasks.filter(t=>t.id!==id);render();
@@ -283,6 +295,13 @@ document.addEventListener('submit',async e=>{
   else if(a==='addtask'){const text=String(fd.get('t')||'').trim();if(!text)return;btn.disabled=true;
     const r=await run(sb.from('subtasks').insert({stage_id:f.dataset.id,text}).select().single());
     if(r){D.subtasks.push(r);ui.open[f.dataset.id]=true;render()}else btn.disabled=false}});
+
+// После «Подключить Telegram» человек возвращается из бота: перечитываем только его строку.
+window.addEventListener('focus',async()=>{
+  if(!ui.tgWait||!D?.me)return;
+  const {data}=await sb.from('members').select('tg_chat_id,tg_username').eq('id',uid).single();
+  if(data?.tg_chat_id){Object.assign(D.me,data);ui.tgWait=false;render();toast('Telegram подключён')}
+});
 
 // ---------- вход ----------
 if(sb){
