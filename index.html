@@ -49,14 +49,35 @@ h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:40px}
 .stage{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px}
 .stage .name{font-weight:700;font-size:19px;letter-spacing:-.01em}
-.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
-.seg button{flex:1;min-height:40px;border:0;background:none;border-radius:9px;padding:0 4px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
-.seg button:not(:disabled):hover{color:var(--ink)}
-.seg button[aria-pressed="true"]{font-weight:700}
-.seg button[aria-pressed="true"].todo{background:var(--s-todo);color:var(--ink)}
-.seg button[aria-pressed="true"].wip{background:var(--s-wip);color:var(--accent-ink)}
-.seg button[aria-pressed="true"].done{background:var(--s-done);color:#062011}
-.seg button:disabled{cursor:default}
+/* Статус этапа: название шага и полоска из 5 делений (0 Не начато … 4 Готово) */
+.k0{--fill:var(--s-todo);--txt:var(--muted)}.k1,.k2,.k3{--fill:var(--s-wip);--txt:var(--accent)}.k4{--fill:var(--s-done);--txt:var(--s-done)}
+.track .tname{font-weight:700;font-size:16px;color:var(--txt);display:flex;justify-content:space-between;gap:8px}
+.track .tname small{color:var(--muted);font-weight:600;font-size:13px}
+.steps{display:flex;gap:4px}
+.steps button{flex:1;height:32px;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center}
+.steps button::before{content:'';flex:1;height:10px;border-radius:99px;background:var(--bg);border:1px solid var(--line)}
+.steps button.on::before{background:var(--fill);border-color:transparent}
+.steps button:not(:disabled):hover::before{border-color:var(--accent)}
+.steps button:disabled{cursor:default}
+.bar{display:flex;gap:3px}
+.bar i{flex:1;height:8px;border-radius:99px;background:var(--bg);border:1px solid var(--line)}
+.bar i.on{background:var(--fill);border-color:transparent}
+/* Все проекты */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:16px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:10px;text-align:left;cursor:pointer;width:100%}
+.pcard:hover{border-color:var(--accent)}
+.pcard .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.pcard .head b{font-weight:800;font-size:22px;letter-spacing:-.015em}
+.pcard .head span{font-weight:800;font-size:26px;color:var(--accent)}
+.pcard .row{display:grid;grid-template-columns:104px 80px minmax(0,1fr);gap:12px;align-items:center;font-size:14px}
+.pcard .row em{font-style:normal;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcard .foot{font-size:13px;color:var(--accent);font-weight:600;margin-top:4px}
+.nav.muted{color:var(--muted)}
+.archived{display:inline-block;margin-top:8px;font-size:14px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:2px 12px}
+/* История */
+.hist{display:flex;flex-direction:column;gap:8px;margin-top:8px;font-size:14px}
+.hist div{color:var(--muted)}
+.hist b{color:var(--ink);font-weight:700}
 .stage input{border:0;border-bottom:1px dashed var(--line);background:none;padding:4px 0;font-size:14px;color:var(--muted);width:100%}
 .stage input:disabled{border-bottom-color:transparent}
 .subt{border:0;background:none;padding:2px 0;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;min-height:32px}
@@ -125,13 +146,22 @@ td input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const STAGES=['Математика','Арт','Звук','Разработка','Тестирование','Релиз'];
-const ST={todo:'Не начато',wip:'В работе',done:'Готово'};
+// Пять статусов этапа: 0 Не начато, 1–3 свои шаги этапа, 4 Готово (утверждено владельцем).
+const STEPS=[
+  ['Концепт механики','Модель готова','Симуляция пройдена'],
+  ['Скетчи','Мокапы готовы','Финальный арт'],
+  ['Референсы','Черновой звук','Финальный звук'],
+  ['Прототип готов','Все фичи','Полировка'],
+  ['Первый прогон','Баги исправлены','Регресс пройден'],
+  ['Документы','Сертификация','Сборка отправлена']];
+const stepName=(pos,k)=>k===0?'Не начато':k===4?'Готово':STEPS[pos]?.[k-1]??'';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CFG_OK=!!(window.SUPABASE_URL&&window.SUPABASE_ANON_KEY)&&!/YOUR_/.test(window.SUPABASE_URL+window.SUPABASE_ANON_KEY);
 const sb=CFG_OK&&window.supabase?window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY):null;
 
 let uid=null,D=null;
-const ui={edit:null,showDone:{},ready:false,view:'project',pid:new URLSearchParams(location.search).get('p'),open:{},sent:null,error:null};
+const urlPid=()=>new URLSearchParams(location.search).get('p');
+const ui={edit:null,showDone:{},archOpen:false,hist:{},ready:false,view:urlPid()?'project':'all',pid:urlPid(),open:{},sent:null,error:null};
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
 // ---------- данные ----------
@@ -160,7 +190,9 @@ const tasksOf=sid=>D.subtasks.filter(t=>t.stage_id===sid);
 const linksOf=pid=>D.links.filter(l=>l.project_id===pid);
 const inProj=(mid,pid)=>D.pm.some(x=>x.project_id===pid&&x.member_id===mid);
 const people=pid=>D.members.filter(m=>m.is_admin||inProj(m.id,pid));
-const pct=pid=>Math.round(stagesOf(pid).reduce((s,x)=>s+(x.status==='done'?1:x.status==='wip'?.5:0),0)/STAGES.length*100);
+const pct=pid=>Math.round(stagesOf(pid).reduce((s,x)=>s+x.step,0)/(STAGES.length*4)*100);
+const active=()=>D.projects.filter(p=>!p.archived_at);
+const archivedList=()=>D.projects.filter(p=>p.archived_at);
 const fmt=s=>new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 
 // ---------- экраны ----------
@@ -172,17 +204,21 @@ function render(){
   if(!uid)return viewLogin();
   if(!D)return gate(ui.error?`<p>${esc(ui.error)}</p>`:`<p class="hint">Загрузка…</p>`);
   if(!D.me)return gate(`<h1>Нет доступа</h1><p class="hint">Этот адрес не приглашён в трекер. Напиши Алексею.</p><button class="btn" data-act="logout">Выйти</button>`);
-  const u=D.me,vp=D.projects;
-  if(ui.view==='members'&&!u.is_admin)ui.view='project';
-  if(!vp.find(p=>p.id===ui.pid))ui.pid=vp[0]?.id;
+  const u=D.me,arch=archivedList();
+  if(ui.view==='members'&&!u.is_admin)ui.view='all';
+  if(ui.view==='project'&&!P(ui.pid))ui.view='all';
   // Адрес запоминает открытый проект: после F5 и по кнопке из Telegram попадаешь в него же.
-  if(ui.view==='project'&&ui.pid&&new URLSearchParams(location.search).get('p')!==ui.pid)history.replaceState(null,'',`?p=${ui.pid}`);
+  if(ui.view==='project'&&urlPid()!==ui.pid)history.replaceState(null,'',`?p=${ui.pid}`);
+  if(ui.view==='all'&&urlPid())history.replaceState(null,'',location.pathname);
+  const navP=p=>`<button class="nav${p.archived_at?' muted':''}" data-act="proj" data-id="${p.id}" aria-current="${ui.view==='project'&&ui.pid===p.id}"><span>${esc(p.name)}</span><span class="pct">${pct(p.id)}%</span></button>`;
   app().className='app';
   app().innerHTML=`
   <aside>
     <div class="brand">Мои слоты</div>
     <nav class="navlist">
-      ${vp.map(p=>`<button class="nav" data-act="proj" data-id="${p.id}" aria-current="${ui.view==='project'&&ui.pid===p.id}"><span>${esc(p.name)}</span><span class="pct">${pct(p.id)}%</span></button>`).join('')}
+      <button class="nav" data-act="all" aria-current="${ui.view==='all'}">Все проекты</button>
+      ${active().map(navP).join('')}
+      ${arch.length?`<button class="nav muted" data-act="archtoggle" aria-expanded="${ui.archOpen}"><span>Архив (${arch.length})</span><span>${ui.archOpen?'▴':'▾'}</span></button>${ui.archOpen?arch.map(navP).join(''):''}`:''}
       ${u.is_admin?`<button class="nav" data-act="newproj">+ Проект</button><button class="nav" data-act="members" aria-current="${ui.view==='members'}">Доступ</button>`:''}
     </nav>
     <div class="viewer"><b>${esc(u.name)}</b>
@@ -190,7 +226,7 @@ function render(){
         :`<button class="btn" data-act="tgon" style="margin:8px 0">Подключить Telegram</button>`}
       <button class="btn ghost" data-act="logout" style="text-align:left;padding-left:0">Выйти</button></div>
   </aside>
-  <main>${ui.error?`<p class="empty">${esc(ui.error)}</p>`:ui.view==='members'?viewMembers():viewProject()}</main>`;
+  <main>${ui.error?`<p class="empty">${esc(ui.error)}</p>`:ui.view==='members'?viewMembers():ui.view==='all'?viewAll():viewProject()}</main>`;
 }
 function viewLogin(){
   if(ui.sent)return gate(`<h1>Проверь почту</h1><p>Ссылка для входа отправлена на <b>${esc(ui.sent)}</b>.</p><p class="hint">Открой письмо на этом устройстве.</p><button class="btn" data-act="again">Другой адрес</button>`);
@@ -206,12 +242,13 @@ function viewProject(){
   const ns=D.notes.filter(n=>n.project_id===p.id).sort((a,b)=>b.created_at.localeCompare(a.created_at));
   const open=ns.filter(n=>!n.done),closed=ns.filter(n=>n.done);
   const links=linksOf(p.id);
-  return`<div class="phead"><h1>${esc(p.name)}</h1><div class="progress">${pct(p.id)}%<small>готовности</small></div></div>
+  return`<div class="phead"><div><h1>${esc(p.name)}</h1>${p.archived_at?'<span class="archived">В архиве</span>':''}</div><div class="progress">${pct(p.id)}%<small>готовности</small></div></div>
   <div class="links">${links.map(l=>`<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}${u.is_admin||l.created_by===u.id?`<button class="x" data-act="dellink" data-id="${l.id}" aria-label="Убрать ссылку ${esc(l.label)}">✕</button>`:''}</a>`).join('')}
   <button class="link addlink" data-act="addlink">+ Ссылка</button></div>
-  <div class="stages">${stagesOf(p.id).map(s=>`<section class="stage s-${s.status}">
+  <div class="stages">${stagesOf(p.id).map(s=>`<section class="stage">
     <div class="name">${STAGES[s.position]}</div>
-    <div class="seg" role="group" aria-label="Статус: ${STAGES[s.position]}">${Object.entries(ST).map(([k,v])=>`<button class="${k}" data-act="st" data-id="${s.id}" data-v="${k}" aria-pressed="${s.status===k}" ${u.is_admin?'':'disabled'}>${v}</button>`).join('')}</div>
+    <div class="track k${s.step}"><div class="tname">${stepName(s.position,s.step)}<small>${s.step+1}/5</small></div>
+      <div class="steps" role="group" aria-label="Статус: ${STAGES[s.position]}">${[0,1,2,3,4].map(k=>`<button class="${k<=s.step?'on':''}" data-act="st" data-id="${s.id}" data-v="${k}" title="${stepName(s.position,k)}" aria-label="${stepName(s.position,k)}" aria-pressed="${s.step===k}" ${u.is_admin?'':'disabled'}></button>`).join('')}</div></div>
     ${owner(s,p,u)}
     <input data-act="cm" data-id="${s.id}" value="${esc(s.comment)}" placeholder="${u.is_admin?'Комментарий':''}" ${u.is_admin?'':'disabled'} aria-label="Комментарий: ${STAGES[s.position]}">
     ${subtasks(s,u)}
@@ -226,7 +263,44 @@ function viewProject(){
   ${open.map(n=>note(n,p,u)).join('')}
   ${closed.length?`<button class="btn ghost" data-act="showdone" data-id="${p.id}" style="padding-left:0">${ui.showDone[p.id]?'Скрыть закрытые':`Показать закрытые (${closed.length})`}</button>
   ${ui.showDone[p.id]?closed.map(n=>note(n,p,u)).join(''):''}`:''}
-  ${u.is_admin?`<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:32px"><button class="btn ghost" data-act="renproj" style="padding-left:0">Переименовать проект</button><button class="btn ghost" data-act="delproj">Удалить проект</button></div>`:''}`;
+  <div style="margin-top:32px"><button class="btn ghost" data-act="hist" data-id="${p.id}" style="padding-left:0" aria-expanded="${!!ui.hist[p.id]}">История ${ui.hist[p.id]?'▴':'▾'}</button>
+  ${ui.hist[p.id]?`<div class="hist">${ui.hist[p.id]==='loading'?'<div>Загрузка…</div>':ui.hist[p.id].length?ui.hist[p.id].map(a=>`<div><b>${esc(M(a.actor_id)?.name||'Кто-то')}</b> · ${histText(a)} · ${fmt(a.created_at)}</div>`).join(''):'<div>Изменений пока нет.</div>'}</div>`:''}</div>
+  ${u.is_admin?`<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:24px"><button class="btn ghost" data-act="renproj" style="padding-left:0">Переименовать проект</button><button class="btn ghost" data-act="archive">${p.archived_at?'Вернуть из архива':'В архив'}</button><button class="btn ghost" data-act="delproj">Удалить проект</button></div>`:''}`;
+}
+// Строка ленты изменений (события пишет база, см. миграцию 006).
+function histText(a){
+  const d=a.data||{},st=STAGES[d.stage]??'',t=`«${esc(d.text)}»`;
+  return({
+    step:()=>`${st}: ${esc(stepName(d.stage,d.from))} → <b>${esc(stepName(d.stage,d.to))}</b>`,
+    owner:()=>`${st}: отвечает ${d.owner?esc(M(d.owner)?.name||'?'):'— никто'}`,
+    comment:()=>`${st}: комментарий ${d.text?t:'удалён'}`,
+    subtask_add:()=>`${st}: добавлена подзадача ${t}`,
+    subtask_del:()=>`${st}: удалена подзадача ${t}`,
+    subtask_done:()=>`${st}: выполнена ${t}`,
+    subtask_pending:()=>`${st}: ${t} на проверку`,
+    subtask_verified:()=>`${st}: подтверждена ${t}`,
+    subtask_returned:()=>`${st}: возвращена ${t}`,
+    subtask_undone:()=>`${st}: снята отметка ${t}`,
+    link_add:()=>`добавлена ссылка «${esc(d.label)}»`,
+    link_del:()=>`удалена ссылка «${esc(d.label)}»`,
+    rename:()=>`проект переименован: «${esc(d.from)}» → «${esc(d.to)}»`,
+    archive:()=>'проект в архиве',
+    unarchive:()=>'проект вернулся из архива',
+  }[a.kind]??(()=>esc(a.kind)))();
+}
+function viewAll(){
+  const u=D.me,list=active();
+  if(!D.projects.length)return`<div class="phead"><h1>Все проекты</h1></div><p class="empty">${u.is_admin?'Проектов пока нет. Создай первый в меню.':'Вам пока не открыт ни один проект.'}</p>`;
+  return`<div class="phead"><h1>Все проекты</h1></div>
+  ${list.length?`<div class="cards">${list.map(p=>{
+    const sts=stagesOf(p.id),sids=new Set(sts.map(s=>s.id));
+    const toMe=D.notes.filter(n=>n.project_id===p.id&&n.to_id===u.id&&!n.done).length;
+    const pend=u.is_admin?D.subtasks.filter(t=>sids.has(t.stage_id)&&t.done&&!t.verified).length:0;
+    const foot=[toMe?`заметок тебе: ${toMe}`:'',pend?`на проверке: ${pend}`:''].filter(Boolean).join(' · ');
+    return`<button class="pcard" data-act="proj" data-id="${p.id}">
+      <div class="head"><b>${esc(p.name)}</b><span>${pct(p.id)}%</span></div>
+      ${sts.map(s=>`<div class="row k${s.step}"><span>${STAGES[s.position]}</span><div class="bar">${[0,1,2,3,4].map(k=>`<i class="${k<=s.step?'on':''}"></i>`).join('')}</div><em>${esc(stepName(s.position,s.step))}</em></div>`).join('')}
+      ${foot?`<div class="foot">${foot}</div>`:''}</button>`}).join('')}</div>`:`<p class="empty">Все проекты в архиве.</p>`}`;
 }
 function note(n,p,u){
   const mine=n.author_id===u.id,canReply=!mine&&people(p.id).some(m=>m.id===n.author_id);
@@ -275,8 +349,18 @@ function viewMembers(){
 document.addEventListener('click',async e=>{
   const el=e.target.closest('button[data-act]');if(!el)return;
   const a=el.dataset.act,id=el.dataset.id;
-  if(a==='proj'){ui.view='project';ui.pid=id;render()}
+  if(a==='proj'){ui.view='project';ui.pid=id;render();window.scrollTo(0,0)}
+  else if(a==='all'){ui.view='all';render()}
+  else if(a==='archtoggle'){ui.archOpen=!ui.archOpen;render()}
   else if(a==='members'){ui.view='members';render()}
+  else if(a==='hist'){
+    if(ui.hist[id]){delete ui.hist[id];render();return}
+    ui.hist[id]='loading';render();
+    const r=await run(sb.from('activity').select('*').eq('project_id',id).order('created_at',{ascending:false}).limit(50));
+    if(ui.hist[id]==='loading'){ui.hist[id]=Array.isArray(r)?r:[];render()}}
+  else if(a==='archive'){const p=P(ui.pid);p.archived_at=p.archived_at?null:new Date().toISOString();
+    if(p.archived_at)ui.archOpen=true;delete ui.hist[p.id];render();
+    run(sb.from('projects').update({archived_at:p.archived_at}).eq('id',p.id))}
   else if(a==='toggle'){ui.open[id]=!ui.open[id];render()}
   else if(a==='again'){ui.sent=null;render()}
   else if(a==='logout'){await sb.auth.signOut()}
@@ -289,8 +373,8 @@ document.addEventListener('click',async e=>{
     if(w)w.location.href=url;else location.href=url;
     ui.tgWait=true}
   else if(a==='tgoff'){D.me.tg_chat_id=null;D.me.tg_username=null;render();run(sb.rpc('tg_unlink'))}
-  else if(a==='st'){const s=D.stages.find(x=>x.id===id);s.status=el.dataset.v;render();
-    run(sb.from('stages').update({status:s.status}).eq('id',id))}
+  else if(a==='st'){const s=D.stages.find(x=>x.id===id);s.step=+el.dataset.v;render();
+    run(sb.from('stages').update({step:s.step}).eq('id',id))}
   else if(a==='deltask'){e.preventDefault();D.subtasks=D.subtasks.filter(t=>t.id!==id);render();
     run(sb.from('subtasks').delete().eq('id',id))}
   else if(a==='addlink'){const l=prompt('Название ссылки (например, «Демо-билд»)');if(!l||!l.trim())return;
@@ -371,7 +455,7 @@ window.addEventListener('focus',async()=>{
 if(sb){
   sb.auth.onAuthStateChange((_,session)=>{
     const id=session?.user?.id||null;if(ui.ready&&id===uid)return;
-    ui.ready=true;uid=id;D=null;ui.sent=null;ui.view='project';
+    ui.ready=true;uid=id;D=null;ui.sent=null;ui.view=urlPid()?'project':'all';
     // Запросы к базе нельзя делать прямо внутри этого колбэка — откладываем.
     setTimeout(()=>uid?refresh():render(),0);
   });
