@@ -86,10 +86,6 @@ select.chip:hover{border-color:var(--accent)}
 .hist{display:flex;flex-direction:column;gap:8px;margin-top:8px;font-size:14px}
 .hist div{color:var(--muted)}
 .hist b{color:var(--ink);font-weight:700}
-.stage .cm{border:0;border-bottom:1px solid transparent;background:none;padding:4px 0;font-size:14px;color:var(--ink);width:100%}
-.stage .cm::placeholder{color:var(--muted)}
-.stage .cm:hover,.stage .cm:focus{border-bottom-color:var(--line);outline:0}
-.stage p.cm{margin:0;color:var(--muted)}
 .pbar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin:-4px 0 24px}
 .pbar i{display:block;height:100%;background:var(--accent);border-radius:99px}
 .pbar.full i{background:var(--s-done)}
@@ -260,8 +256,6 @@ function viewProject(){
     <div class="shead"><div class="name">${STAGES[s.position]}</div>${owner(s,p,u)}</div>
     <div class="track"><div class="tname">${stepName(s.position,s.step)}</div>
       <div class="steps" role="group" aria-label="Статус: ${STAGES[s.position]}">${[1,2,3,4].map(k=>`<button class="${k<=s.step?'on':''}" data-act="st" data-id="${s.id}" data-v="${k}" title="${stepName(s.position,k)}" aria-label="${stepName(s.position,k)}" aria-pressed="${s.step===k}" ${u.is_admin?'':'disabled'}></button>`).join('')}</div></div>
-    ${u.is_admin?`<input class="cm" data-act="cm" data-id="${s.id}" value="${esc(s.comment)}" placeholder="Добавить комментарий" aria-label="Комментарий: ${STAGES[s.position]}">`
-      :s.comment?`<p class="cm">${esc(s.comment)}</p>`:''}
     ${subtasks(s,u)}
   </section>`).join('')}</div>
   <h2>Заметки</h2>
@@ -285,8 +279,8 @@ function histText(a){
     step:()=>`${st}: ${esc(stepName(d.stage,d.from))} → <b>${esc(stepName(d.stage,d.to))}</b>`,
     owner:()=>`${st}: отвечает ${d.owner?esc(M(d.owner)?.name||'?'):'— никто'}`,
     comment:()=>`${st}: комментарий ${d.text?t:'удалён'}`,
-    subtask_add:()=>`${st}: добавлена подзадача ${t}`,
-    subtask_del:()=>`${st}: удалена подзадача ${t}`,
+    subtask_add:()=>`${st}: добавлена задача ${t}`,
+    subtask_del:()=>`${st}: удалена задача ${t}`,
     subtask_done:()=>`${st}: выполнена ${t}`,
     subtask_pending:()=>`${st}: ${t} на проверку`,
     subtask_verified:()=>`${st}: подтверждена ${t}`,
@@ -336,11 +330,11 @@ function subtasks(s,u){
   // В счётчик идут только подтверждённые админом; отметки участников — «на проверке».
   const ts=tasksOf(s.id),n=ts.length,d=ts.filter(t=>t.verified).length,q=ts.filter(t=>t.done&&!t.verified).length,open=ui.open[s.id];
   if(!n&&!u.is_admin)return'';
-  const head=n?`Подзадачи ${d}/${n}${q?` <span class="pend">· ${q} на проверке</span>`:''}<span class="mini"><i style="width:${d/n*100}%"></i></span>${open?'▴':'▾'}`
-    :open?'Скрыть':'+ Подзадача';
+  const head=n?`Задачи ${d}/${n}${q?` <span class="pend">· ${q} на проверке</span>`:''}<span class="mini"><i style="width:${d/n*100}%"></i></span>${open?'▴':'▾'}`
+    :open?'Скрыть':'+ Задача';
   return`<div class="foot"><button class="subt" data-act="toggle" data-id="${s.id}" aria-expanded="${!!open}">${head}</button>
   ${open?`<div class="tasks">${ts.map(t=>task(t,u)).join('')}
-  ${u.is_admin?`<form data-act="addtask" data-id="${s.id}"><input name="t" placeholder="Новая подзадача" aria-label="Новая подзадача"><button class="btn" type="submit">+</button></form>`:''}</div>`:''}</div>`;
+  ${u.is_admin?`<form data-act="addtask" data-id="${s.id}"><input name="t" placeholder="Новая задача" aria-label="Новая задача"><button class="btn" type="submit">+</button></form>`:''}</div>`:''}</div>`;
 }
 function task(t,u){
   const pending=t.done&&!t.verified;
@@ -355,7 +349,7 @@ function viewMembers(){
    <td>${m.tg_chat_id?`<span class="tg-ok">✓ ${m.tg_username?'@'+esc(m.tg_username):'подключён'}</span>`:'<span class="hint">не подключён</span>'}</td>
    <td style="white-space:nowrap"><button class="btn ghost" data-act="renmember" data-id="${m.id}">Переименовать</button>${m.is_admin?'':`<button class="btn ghost" data-act="rm" data-id="${m.id}">Убрать</button>`}</td></tr>`).join('')}
   </tbody></table></div>
-  <p class="hint">Статусы, комментарии, ответственных и список подзадач меняешь только ты. Остальные видят открытые им проекты, пишут заметки, добавляют ссылки и отмечают подзадачи.</p>`;
+  <p class="hint">Статусы, ответственных и список задач меняешь только ты. Остальные видят открытые им проекты, пишут заметки, добавляют ссылки и отмечают задачи.</p>`;
 }
 
 // ---------- действия ----------
@@ -414,7 +408,7 @@ document.addEventListener('click',async e=>{
     D.members=D.members.filter(m=>m.id!==id);D.pm=D.pm.filter(x=>x.member_id!==id);render();
     run(sb.from('members').delete().eq('id',id))}
   else if(a==='delproj'){const p=P(ui.pid);
-    if(!confirm(`Удалить проект «${p.name}» вместе с этапами, подзадачами, ссылками и заметками? Отменить будет нельзя.`))return;
+    if(!confirm(`Удалить проект «${p.name}» вместе с этапами, задачами, ссылками и заметками? Отменить будет нельзя.`))return;
     if(await run(sb.from('projects').delete().eq('id',p.id))){ui.pid=null;await refresh()}}
   else if(a==='renproj'||a==='renmember'){
     const [obj,table,ask]=a==='renproj'?[P(ui.pid),'projects','Новое название проекта']:[M(id),'members','Новое имя'];
@@ -432,8 +426,6 @@ document.addEventListener('change',e=>{
     run(sb.from('subtasks').update(adm?{done:t.done,verified:t.verified}:{done:t.done}).eq('id',id))}
   else if(a==='own'){const s=D.stages.find(x=>x.id===id);s.owner_id=el.value||null;
     run(sb.from('stages').update({owner_id:s.owner_id}).eq('id',id))}
-  else if(a==='cm'){D.stages.find(x=>x.id===id).comment=el.value;
-    run(sb.from('stages').update({comment:el.value}).eq('id',id))}
   else if(a==='mp'){const v=el.dataset.v;
     if(el.checked){D.pm.push({project_id:v,member_id:id});run(sb.from('project_members').insert({project_id:v,member_id:id}))}
     else{D.pm=D.pm.filter(x=>!(x.project_id===v&&x.member_id===id));run(sb.from('project_members').delete().eq('project_id',v).eq('member_id',id))}
