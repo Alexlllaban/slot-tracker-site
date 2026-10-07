@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Трекер слотов</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0E1014;--surface:#171A21;--surface-2:#1F232C;--line:#2B303C;--ink:#EDEFF3;--muted:#9BA1AE;--accent:#8E87FF;--accent-ink:#110F2B;
+  --s-todo:#3A404D;--s-wip:#8E87FF;--s-done:#4FD787;
+  --font:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:500 16px/1.5 var(--font)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+aside{background:#12141A;border-right:1px solid var(--line);padding:28px 16px;display:flex;flex-direction:column;gap:22px}
+.brand{font-weight:800;font-size:20px;letter-spacing:-.01em;padding:0 10px}
+.navlist{display:flex;flex-direction:column;gap:4px}
+.nav{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:48px;text-align:left;background:none;border:1px solid transparent;border-radius:12px;padding:0 14px;cursor:pointer;font-weight:600}
+.nav:hover{background:var(--surface)}
+.nav[aria-current="true"]{background:var(--surface-2);border-color:var(--line)}
+.nav .pct{font-size:13px;color:var(--muted);font-weight:600}
+.viewer{margin-top:auto;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;padding:0 10px}
+.viewer b{color:var(--ink);font-weight:700;font-size:15px}
+.gate{min-height:100vh;display:grid;place-items:center;padding:16px}
+.gate .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:32px;width:min(440px,100%);display:flex;flex-direction:column;gap:16px}
+.gate h1{font-size:34px}
+.gate p{margin:0}
+.gate input{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:0 14px;min-height:48px;width:100%}
+.gate .btn{min-height:48px}
+main{padding:36px clamp(16px,4vw,52px) 64px;min-width:0;max-width:1080px}
+h1{font-weight:800;font-size:clamp(30px,4vw,46px);line-height:1.05;letter-spacing:-.025em;margin:0}
+h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
+.phead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:22px}
+.progress{font-weight:800;font-size:46px;line-height:1;color:var(--accent);letter-spacing:-.03em;text-align:right}
+.progress small{display:block;font-weight:500;font-size:14px;color:var(--muted);margin-top:6px;letter-spacing:0}
+.links{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 28px;align-items:center}
+.link{display:inline-flex;align-items:center;gap:8px;min-height:44px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 16px;font-size:15px;font-weight:600;color:var(--ink);text-decoration:none}
+.link:hover{border-color:var(--accent)}
+.link .x{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 0 0 2px;font-size:14px;line-height:1}
+.addlink{border-style:dashed;color:var(--muted);cursor:pointer}
+.stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:40px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.stage .name{font-weight:700;font-size:19px;letter-spacing:-.01em}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;min-height:40px;border:0;background:none;border-radius:9px;padding:0 4px;font-size:13px;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg button:not(:disabled):hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{font-weight:700}
+.seg button[aria-pressed="true"].todo{background:var(--s-todo);color:var(--ink)}
+.seg button[aria-pressed="true"].wip{background:var(--s-wip);color:var(--accent-ink)}
+.seg button[aria-pressed="true"].done{background:var(--s-done);color:#062011}
+.seg button:disabled{cursor:default}
+.stage input{border:0;border-bottom:1px dashed var(--line);background:none;padding:4px 0;font-size:14px;color:var(--muted);width:100%}
+.stage input:disabled{border-bottom-color:transparent}
+.subt{border:0;background:none;padding:2px 0;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;min-height:32px}
+.subt .mini{flex:1;height:6px;background:var(--bg);border-radius:99px;overflow:hidden;min-width:40px}
+.subt .mini i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.tasks{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.tasks label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.tasks input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);margin-top:2px}
+.tasks label.d span{color:var(--muted);text-decoration:line-through}
+.tasks form{display:flex;gap:6px;margin-top:4px}
+.tasks form input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--bg);font-size:14px;color:var(--ink)}
+.compose{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.compose textarea{flex:1 1 300px;min-height:48px;resize:vertical;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.compose select{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 12px;min-height:48px}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 16px;min-height:44px;cursor:pointer;font-size:14px;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+.btn.primary:hover{background:#FFFFFF}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted);min-height:36px;padding:0 8px}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.note.done{opacity:.5}
+.note .body{flex:1;min-width:0}
+.note .meta{font-size:13px;color:var(--muted)}
+.note .meta b{color:var(--ink);font-weight:700}
+.note .meta .tome{color:var(--accent);font-weight:700}
+.note p{margin:4px 0 0;white-space:pre-wrap}
+.tgmark{color:var(--accent)}
+.empty{color:var(--muted);padding:14px 0}
+.tbl{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:14px 16px;border-top:1px solid var(--line);vertical-align:middle}
+th{font-weight:600;color:var(--muted);font-size:13px;border-top:0}
+td label{display:inline-flex;gap:6px;align-items:center;margin-right:14px;white-space:nowrap}
+td input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+.tg-ok{color:var(--s-done);font-size:14px;font-weight:600}
+.hint{color:var(--muted);font-size:14px}
+.howto{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:22px;font-size:15px}
+.howto p{margin:6px 0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-size:15px;font-weight:600;z-index:40;max-width:min(520px,92vw)}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  aside{border-right:0;border-bottom:1px solid var(--line);padding:14px}
+  .navlist{flex-direction:row;overflow-x:auto;gap:6px}
+  .navlist .nav{width:auto;white-space:nowrap;border-color:var(--line);gap:10px}
+  .viewer{margin-top:0}
+  .stages{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:520px){.stages{grid-template-columns:1fr}.progress{font-size:36px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const STAGES=['Математика','Арт','Звук','Разработка','Тестирование','Релиз'];
+const ST={todo:'Не начато',wip:'В работе',done:'Готово'};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CFG_OK=!!(window.SUPABASE_URL&&window.SUPABASE_ANON_KEY)&&!/YOUR_/.test(window.SUPABASE_URL+window.SUPABASE_ANON_KEY);
+const sb=CFG_OK&&window.supabase?window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY):null;
+
+let uid=null,D=null;
+const ui={ready:false,view:'project',pid:null,open:{},sent:null,error:null};
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
+
+// ---------- данные ----------
+async function load(){
+  const q=t=>sb.from(t).select('*');
+  const r=await Promise.all([q('members').order('created_at'),q('projects').order('created_at'),q('project_members'),
+    q('stages').order('position'),q('subtasks').order('created_at'),q('links').order('created_at'),q('notes').order('created_at',{ascending:false})]);
+  const bad=r.find(x=>x.error);if(bad)throw bad.error;
+  const [members,projects,pm,stages,subtasks,links,notes]=r.map(x=>x.data);
+  D={members,projects,pm,stages,subtasks,links,notes,me:members.find(m=>m.id===uid)||null};
+}
+async function refresh(){
+  try{await load();ui.error=null}catch(e){console.error(e);ui.error='Не удалось загрузить данные. Обнови страницу.'}
+  render();
+}
+// Запрос к базе. При ошибке показываем подсказку и перечитываем данные, чтобы экран совпадал с базой.
+async function run(q){
+  const {data,error}=await q;
+  if(error){console.error(error);toast('Не сохранилось. Попробуй ещё раз');await refresh();return null}
+  return data??true;
+}
+const M=id=>D.members.find(m=>m.id===id);
+const P=id=>D.projects.find(p=>p.id===id);
+const stagesOf=pid=>D.stages.filter(s=>s.project_id===pid).sort((a,b)=>a.position-b.position);
+const tasksOf=sid=>D.subtasks.filter(t=>t.stage_id===sid);
+const linksOf=pid=>D.links.filter(l=>l.project_id===pid);
+const inProj=(mid,pid)=>D.pm.some(x=>x.project_id===pid&&x.member_id===mid);
+const people=pid=>D.members.filter(m=>m.is_admin||inProj(m.id,pid));
+const pct=pid=>Math.round(stagesOf(pid).reduce((s,x)=>s+(x.status==='done'?1:x.status==='wip'?.5:0),0)/STAGES.length*100);
+const fmt=s=>new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+
+// ---------- экраны ----------
+const app=()=>document.getElementById('app');
+function gate(html){app().className='';app().innerHTML=`<div class="gate"><div class="card">${html}</div></div>`}
+function render(){
+  if(!sb)return gate(`<h1>Трекер слотов</h1><p class="hint">Сайт не настроен: впиши адрес Supabase и ключ в <b>config.js</b>.</p>`);
+  if(!ui.ready)return gate(`<p class="hint">Загрузка…</p>`);
+  if(!uid)return viewLogin();
+  if(!D)return gate(ui.error?`<p>${esc(ui.error)}</p>`:`<p class="hint">Загрузка…</p>`);
+  if(!D.me)return gate(`<h1>Нет доступа</h1><p class="hint">Этот адрес не приглашён в трекер. Напиши Алексею.</p><button class="btn" data-act="logout">Выйти</button>`);
+  const u=D.me,vp=D.projects;
+  if(ui.view==='members'&&!u.is_admin)ui.view='project';
+  if(!vp.find(p=>p.id===ui.pid))ui.pid=vp[0]?.id;
+  app().className='app';
+  app().innerHTML=`
+  <aside>
+    <div class="brand">Мои слоты</div>
+    <nav class="navlist">
+      ${vp.map(p=>`<button class="nav" data-act="proj" data-id="${p.id}" aria-current="${ui.view==='project'&&ui.pid===p.id}"><span>${esc(p.name)}</span><span class="pct">${pct(p.id)}%</span></button>`).join('')}
+      ${u.is_admin?`<button class="nav" data-act="newproj">+ Проект</button><button class="nav" data-act="members" aria-current="${ui.view==='members'}">Доступ</button>`:''}
+    </nav>
+    <div class="viewer"><b>${esc(u.name)}</b>
+      <button class="btn ghost" data-act="logout" style="text-align:left;padding-left:0">Выйти</button></div>
+  </aside>
+  <main>${ui.error?`<p class="empty">${esc(ui.error)}</p>`:ui.view==='members'?viewMembers():viewProject()}</main>`;
+}
+function viewLogin(){
+  if(ui.sent)return gate(`<h1>Проверь почту</h1><p>Ссылка для входа отправлена на <b>${esc(ui.sent)}</b>.</p><p class="hint">Открой письмо на этом устройстве.</p><button class="btn" data-act="again">Другой адрес</button>`);
+  gate(`<h1>Вход</h1><p class="hint">Пришлём ссылку для входа на почту. Вход только по приглашению.</p>
+  <form data-act="login" style="display:flex;flex-direction:column;gap:12px">
+    <input name="email" type="email" placeholder="Email" autocomplete="email" required aria-label="Email">
+    <button class="btn primary" type="submit">Получить ссылку</button>
+  </form>`);
+}
+function viewProject(){
+  const p=P(ui.pid),u=D.me;
+  if(!p)return`<p class="empty">${u.is_admin?'Проектов пока нет. Создай первый в меню.':'Вам пока не открыт ни один проект.'}</p>`;
+  const ns=D.notes.filter(n=>n.project_id===p.id).sort((a,b)=>(a.done-b.done)||b.created_at.localeCompare(a.created_at));
+  const links=linksOf(p.id);
+  return`<div class="phead"><h1>${esc(p.name)}</h1><div class="progress">${pct(p.id)}%<small>готовности</small></div></div>
+  <div class="links">${links.map(l=>`<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}${u.is_admin?`<button class="x" data-act="dellink" data-id="${l.id}" aria-label="Убрать ссылку ${esc(l.label)}">✕</button>`:''}</a>`).join('')}
+  ${u.is_admin?`<button class="link addlink" data-act="addlink">+ Ссылка</button>`:''}</div>
+  <div class="stages">${stagesOf(p.id).map(s=>`<section class="stage s-${s.status}">
+    <div class="name">${STAGES[s.position]}</div>
+    <div class="seg" role="group" aria-label="Статус: ${STAGES[s.position]}">${Object.entries(ST).map(([k,v])=>`<button class="${k}" data-act="st" data-id="${s.id}" data-v="${k}" aria-pressed="${s.status===k}" ${u.is_admin?'':'disabled'}>${v}</button>`).join('')}</div>
+    <input data-act="cm" data-id="${s.id}" value="${esc(s.comment)}" placeholder="${u.is_admin?'Комментарий':''}" ${u.is_admin?'':'disabled'} aria-label="Комментарий: ${STAGES[s.position]}">
+    ${subtasks(s,u)}
+  </section>`).join('')}</div>
+  <h2>Заметки</h2>
+  <form class="compose" data-act="note">
+    <textarea name="text" placeholder="Написать заметку" required></textarea>
+    <select name="to" aria-label="Кому"><option value="">Всем</option>${people(p.id).filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+    <button class="btn primary" type="submit">Отправить</button>
+  </form>
+  ${ns.length?ns.map(n=>`<div class="note ${n.done?'done':''}"><div class="body">
+    <div class="meta"><b>${esc(M(n.author_id)?.name||'Удалённый участник')}</b> → <span class="${n.to_id===u.id?'tome':''}">${n.to_id?esc(M(n.to_id)?.name||'?'):'всем'}</span>, ${fmt(n.created_at)}</div>
+    <p>${esc(n.text)}</p></div>
+    <button class="btn ghost" data-act="done" data-id="${n.id}">${n.done?'Вернуть':'Готово'}</button></div>`).join(''):`<p class="empty">Заметок пока нет.</p>`}
+  ${u.is_admin?`<button class="btn ghost" data-act="delproj" style="margin-top:32px;padding-left:0">Удалить проект</button>`:''}`;
+}
+function subtasks(s,u){
+  const ts=tasksOf(s.id),n=ts.length,d=ts.filter(t=>t.done).length,open=ui.open[s.id];
+  if(!n&&!u.is_admin)return'';
+  return`<button class="subt" data-act="toggle" data-id="${s.id}" aria-expanded="${!!open}">${n?`Подзадачи ${d}/${n}`:'Подзадачи'}<span class="mini"><i style="width:${n?d/n*100:0}%"></i></span>${open?'▴':'▾'}</button>
+  ${open?`<div class="tasks">${ts.map(t=>`<label class="${t.done?'d':''}"><input type="checkbox" data-act="tk" data-id="${t.id}" ${t.done?'checked':''}><span>${esc(t.text)}</span>${u.is_admin?`<button class="btn ghost" data-act="deltask" data-id="${t.id}" aria-label="Удалить" style="margin-left:auto;padding:0 4px">✕</button>`:''}</label>`).join('')}
+  ${u.is_admin?`<form data-act="addtask" data-id="${s.id}"><input name="t" placeholder="Новая подзадача" aria-label="Новая подзадача"><button class="btn" type="submit">+</button></form>`:''}</div>`:''}`;
+}
+function viewMembers(){
+  return`<div class="phead"><h1>Доступ</h1></div>
+  <div class="tbl"><table><thead><tr><th>Человек</th><th>Видит проекты</th><th></th></tr></thead><tbody>
+  ${D.members.map(m=>`<tr><td>${esc(m.name)}${m.is_admin?' <span class="hint">админ</span>':''}</td>
+   <td>${m.is_admin?'<span class="hint">все</span>':D.projects.length?D.projects.map(p=>`<label><input type="checkbox" data-act="mp" data-id="${m.id}" data-v="${p.id}" ${inProj(m.id,p.id)?'checked':''}>${esc(p.name)}</label>`).join(''):'<span class="hint">проектов нет</span>'}</td>
+   <td>${m.is_admin?'':`<button class="btn ghost" data-act="rm" data-id="${m.id}">Убрать</button>`}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="hint">Статусы, комментарии и список подзадач меняешь только ты. Остальные видят открытые им проекты, пишут заметки и отмечают подзадачи.</p>`;
+}
+
+// ---------- действия ----------
+document.addEventListener('click',async e=>{
+  const el=e.target.closest('button[data-act]');if(!el)return;
+  const a=el.dataset.act,id=el.dataset.id;
+  if(a==='proj'){ui.view='project';ui.pid=id;render()}
+  else if(a==='members'){ui.view='members';render()}
+  else if(a==='toggle'){ui.open[id]=!ui.open[id];render()}
+  else if(a==='again'){ui.sent=null;render()}
+  else if(a==='logout'){await sb.auth.signOut()}
+  else if(a==='st'){const s=D.stages.find(x=>x.id===id);s.status=el.dataset.v;render();
+    run(sb.from('stages').update({status:s.status}).eq('id',id))}
+  else if(a==='deltask'){e.preventDefault();D.subtasks=D.subtasks.filter(t=>t.id!==id);render();
+    run(sb.from('subtasks').delete().eq('id',id))}
+  else if(a==='addlink'){const l=prompt('Название ссылки (например, «Демо-билд»)');if(!l||!l.trim())return;
+    const url=prompt('Адрес ссылки','https://');if(!url||!/^https?:\/\/\S+/.test(url.trim()))return;
+    const r=await run(sb.from('links').insert({project_id:ui.pid,label:l.trim(),url:url.trim()}).select().single());
+    if(r){D.links.push(r);render()}}
+  else if(a==='dellink'){e.preventDefault();D.links=D.links.filter(l=>l.id!==id);render();
+    run(sb.from('links').delete().eq('id',id))}
+  else if(a==='done'){const n=D.notes.find(x=>x.id===id);n.done=!n.done;render();
+    run(sb.from('notes').update({done:n.done}).eq('id',id))}
+  else if(a==='rm'){if(!confirm('Убрать доступ этому человеку?'))return;
+    D.members=D.members.filter(m=>m.id!==id);D.pm=D.pm.filter(x=>x.member_id!==id);render();
+    run(sb.from('members').delete().eq('id',id))}
+  else if(a==='delproj'){const p=P(ui.pid);
+    if(!confirm(`Удалить проект «${p.name}» вместе с этапами, подзадачами, ссылками и заметками? Отменить будет нельзя.`))return;
+    if(await run(sb.from('projects').delete().eq('id',p.id))){ui.pid=null;await refresh()}}
+  else if(a==='newproj'){const n=prompt('Название проекта');if(!n||!n.trim())return;
+    const r=await run(sb.from('projects').insert({name:n.trim()}).select().single());
+    if(r){ui.view='project';ui.pid=r.id;await refresh()}}
+});
+document.addEventListener('change',e=>{
+  const el=e.target,a=el.dataset.act,id=el.dataset.id;
+  if(a==='tk'){const t=D.subtasks.find(x=>x.id===id);t.done=el.checked;render();
+    run(sb.from('subtasks').update({done:t.done}).eq('id',id))}
+  else if(a==='cm'){D.stages.find(x=>x.id===id).comment=el.value;
+    run(sb.from('stages').update({comment:el.value}).eq('id',id))}
+  else if(a==='mp'){const v=el.dataset.v;
+    if(el.checked){D.pm.push({project_id:v,member_id:id});run(sb.from('project_members').insert({project_id:v,member_id:id}))}
+    else{D.pm=D.pm.filter(x=>!(x.project_id===v&&x.member_id===id));run(sb.from('project_members').delete().eq('project_id',v).eq('member_id',id))}
+    render()}
+});
+document.addEventListener('submit',async e=>{
+  const f=e.target,fd=new FormData(f),a=f.dataset.act;e.preventDefault();
+  const btn=f.querySelector('button[type=submit]');
+  if(a==='login'){const email=String(fd.get('email')||'').trim();if(!email)return;btn.disabled=true;
+    const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
+    btn.disabled=false;
+    if(error){console.error(error);toast(error.status===429?'Слишком много попыток. Подожди немного':'Не получилось. Проверь адрес: вход только по приглашению');return}
+    ui.sent=email;render()}
+  else if(a==='note'){const text=String(fd.get('text')||'').trim();if(!text)return;btn.disabled=true;
+    const r=await run(sb.from('notes').insert({project_id:ui.pid,to_id:fd.get('to')||null,text}).select().single());
+    if(r){D.notes.unshift(r);render();toast('Заметка добавлена')}else btn.disabled=false}
+  else if(a==='addtask'){const text=String(fd.get('t')||'').trim();if(!text)return;btn.disabled=true;
+    const r=await run(sb.from('subtasks').insert({stage_id:f.dataset.id,text}).select().single());
+    if(r){D.subtasks.push(r);ui.open[f.dataset.id]=true;render()}else btn.disabled=false}});
+
+// ---------- вход ----------
+if(sb){
+  sb.auth.onAuthStateChange((_,session)=>{
+    const id=session?.user?.id||null;if(ui.ready&&id===uid)return;
+    ui.ready=true;uid=id;D=null;ui.sent=null;ui.view='project';
+    // Запросы к базе нельзя делать прямо внутри этого колбэка — откладываем.
+    setTimeout(()=>uid?refresh():render(),0);
+  });
+}
+render();
+</script>
+</body>
+</html>
