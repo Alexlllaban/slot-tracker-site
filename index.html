@@ -149,7 +149,8 @@ td input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
 <body>
 <div id="app"></div>
 <script src="config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Своя копия supabase-js 2.117.2: не зависим от jsDelivr, который режут мобильные операторы. -->
+<script src="vendor/supabase.js"></script>
 <script>
 const STAGES=['Математика','Арт','Звук','Разработка','Тестирование','Релиз'];
 // Пять статусов этапа: 0 Не начато, 1–3 свои шаги этапа, 4 Готово (утверждено владельцем).
@@ -168,6 +169,10 @@ const sb=CFG_OK&&window.supabase?window.supabase.createClient(window.SUPABASE_UR
 let uid=null,D=null;
 const urlPid=()=>new URLSearchParams(location.search).get('p');
 const ui={edit:null,showDone:{},archOpen:false,hist:{},ready:false,view:urlPid()?'project':'all',pid:urlPid(),open:{},sent:null,error:null};
+// Если вход или данные не загрузились за 15 секунд, вместо вечной «Загрузки…» показываем, на каком шаге застряло.
+function watch(){clearTimeout(ui.wd);ui.slow=false;ui.wd=setTimeout(()=>{ui.slow=true;render()},15000)}
+const loading=step=>ui.slow?`<h1>Нет связи</h1><p>Не удаётся связаться с сервером. Проверь интернет или включи VPN.</p><p class="hint">Застряло на шаге: ${step}.</p><button class="btn primary" data-act="reload">Обновить</button>`
+  :`<p class="hint">Загрузка…</p>`;
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
 // ---------- данные ----------
@@ -180,8 +185,9 @@ async function load(){
   D={members,projects,pm,stages,subtasks,links,notes,me:members.find(m=>m.id===uid)||null};
 }
 async function refresh(){
+  if(!D)watch();
   try{await load();ui.error=null}catch(e){console.error(e);ui.error='Не удалось загрузить данные. Обнови страницу.'}
-  render();
+  clearTimeout(ui.wd);render();
 }
 // Запрос к базе. При ошибке показываем подсказку и перечитываем данные, чтобы экран совпадал с базой.
 async function run(q){
@@ -205,10 +211,11 @@ const fmt=s=>new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',h
 const app=()=>document.getElementById('app');
 function gate(html){app().className='';app().innerHTML=`<div class="gate"><div class="card">${html}</div></div>`}
 function render(){
-  if(!sb)return gate(`<h1>Трекер слотов</h1><p class="hint">Сайт не настроен: впиши адрес Supabase и ключ в <b>config.js</b>.</p>`);
-  if(!ui.ready)return gate(`<p class="hint">Загрузка…</p>`);
+  if(!CFG_OK)return gate(`<h1>Трекер слотов</h1><p class="hint">Сайт не настроен: впиши адрес Supabase и ключ в <b>config.js</b>.</p>`);
+  if(!sb)return gate(`<h1>Не загрузилось</h1><p>Не загрузились файлы сайта.</p><button class="btn primary" data-act="reload">Обновить</button>`);
+  if(!ui.ready)return gate(loading('проверка входа'));
   if(!uid)return viewLogin();
-  if(!D)return gate(ui.error?`<p>${esc(ui.error)}</p>`:`<p class="hint">Загрузка…</p>`);
+  if(!D)return gate(ui.error?`<p>${esc(ui.error)}</p><button class="btn primary" data-act="reload">Обновить</button>`:loading('загрузка данных'));
   if(!D.me)return gate(`<h1>Нет доступа</h1><p class="hint">Этот адрес не приглашён в трекер. Напиши Алексею.</p><button class="btn" data-act="logout">Выйти</button>`);
   const u=D.me,arch=archivedList();
   if(ui.view==='members'&&!u.is_admin)ui.view='all';
@@ -370,6 +377,7 @@ document.addEventListener('click',async e=>{
     run(sb.from('projects').update({archived_at:p.archived_at}).eq('id',p.id))}
   else if(a==='toggle'){ui.open[id]=!ui.open[id];render()}
   else if(a==='again'){ui.sent=null;render()}
+  else if(a==='reload'){location.reload()}
   else if(a==='logout'){await sb.auth.signOut()}
   else if(a==='tgon'){
     // Вкладку открываем сразу по клику, иначе браузер заблокирует её после ожидания кода.
@@ -459,9 +467,10 @@ window.addEventListener('focus',async()=>{
 
 // ---------- вход ----------
 if(sb){
+  watch();
   sb.auth.onAuthStateChange((_,session)=>{
     const id=session?.user?.id||null;if(ui.ready&&id===uid)return;
-    ui.ready=true;uid=id;D=null;ui.sent=null;ui.view=urlPid()?'project':'all';
+    clearTimeout(ui.wd);ui.ready=true;uid=id;D=null;ui.sent=null;ui.view=urlPid()?'project':'all';
     // Запросы к базе нельзя делать прямо внутри этого колбэка — откладываем.
     setTimeout(()=>uid?refresh():render(),0);
   });
