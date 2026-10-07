@@ -35,7 +35,7 @@ aside{background:#12141A;border-right:1px solid var(--line);padding:28px 16px;di
 .gate p{margin:0}
 .gate input{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:0 14px;min-height:48px;width:100%}
 .gate .btn{min-height:48px}
-main{padding:36px clamp(16px,4vw,52px) 64px;min-width:0;max-width:1080px}
+main{padding:36px clamp(16px,4vw,52px) 64px;min-width:0;max-width:1600px}
 h1{font-weight:800;font-size:clamp(30px,4vw,46px);line-height:1.05;letter-spacing:-.025em;margin:0}
 h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .phead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:22px}
@@ -47,15 +47,23 @@ h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .link .x{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 0 0 2px;font-size:14px;line-height:1}
 .addlink{border-style:dashed;color:var(--muted);cursor:pointer}
 .stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:40px}
-.stage{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px;display:flex;flex-direction:column;gap:12px}
+.stage.k1,.stage.k2,.stage.k3{border-color:rgba(142,135,255,.38)}
+.stage.k4{border-color:rgba(79,215,135,.38)}
+.stage .shead{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:32px}
 .stage .name{font-weight:700;font-size:19px;letter-spacing:-.01em}
-/* Статус этапа: название шага и полоска из 5 делений (0 Не начато … 4 Готово) */
+.stage .foot{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+/* Ответственный: плашка в шапке карточки */
+.chip{display:inline-flex;align-items:center;min-height:32px;max-width:60%;padding:0 12px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+select.chip{appearance:none;cursor:pointer;padding-right:28px;background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239BA1AE' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 11px center}
+select.chip:hover{border-color:var(--accent)}
+.chip.none{color:var(--muted);background-color:transparent;border-style:dashed}
+/* Статус этапа: название шага и 4 деления (3 шага + Готово); «Не начато» — все пустые */
 .k0{--fill:var(--s-todo);--txt:var(--muted)}.k1,.k2,.k3{--fill:var(--s-wip);--txt:var(--accent)}.k4{--fill:var(--s-done);--txt:var(--s-done)}
-.track .tname{font-weight:700;font-size:16px;color:var(--txt);display:flex;justify-content:space-between;gap:8px}
-.track .tname small{color:var(--muted);font-weight:600;font-size:13px}
-.steps{display:flex;gap:4px}
-.steps button{flex:1;height:32px;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center}
-.steps button::before{content:'';flex:1;height:10px;border-radius:99px;background:var(--bg);border:1px solid var(--line)}
+.track .tname{font-weight:700;font-size:17px;color:var(--txt);margin-bottom:2px}
+.steps{display:flex;gap:5px}
+.steps button{flex:1;height:28px;border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center}
+.steps button::before{content:'';flex:1;height:8px;border-radius:99px;background:var(--bg);border:1px solid var(--line)}
 .steps button.on::before{background:var(--fill);border-color:transparent}
 .steps button:not(:disabled):hover::before{border-color:var(--accent)}
 .steps button:disabled{cursor:default}
@@ -69,7 +77,7 @@ h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .pcard .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
 .pcard .head b{font-weight:800;font-size:22px;letter-spacing:-.015em}
 .pcard .head span{font-weight:800;font-size:26px;color:var(--accent)}
-.pcard .row{display:grid;grid-template-columns:104px 80px minmax(0,1fr);gap:12px;align-items:center;font-size:14px}
+.pcard .row{display:grid;grid-template-columns:104px 72px minmax(0,1fr);gap:12px;align-items:center;font-size:14px}
 .pcard .row em{font-style:normal;color:var(--txt);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pcard .foot{font-size:13px;color:var(--accent);font-weight:600;margin-top:4px}
 .nav.muted{color:var(--muted)}
@@ -78,8 +86,13 @@ h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .hist{display:flex;flex-direction:column;gap:8px;margin-top:8px;font-size:14px}
 .hist div{color:var(--muted)}
 .hist b{color:var(--ink);font-weight:700}
-.stage input{border:0;border-bottom:1px dashed var(--line);background:none;padding:4px 0;font-size:14px;color:var(--muted);width:100%}
-.stage input:disabled{border-bottom-color:transparent}
+.stage .cm{border:0;border-bottom:1px solid transparent;background:none;padding:4px 0;font-size:14px;color:var(--ink);width:100%}
+.stage .cm::placeholder{color:var(--muted)}
+.stage .cm:hover,.stage .cm:focus{border-bottom-color:var(--line);outline:0}
+.stage p.cm{margin:0;color:var(--muted)}
+.pbar{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;margin:-4px 0 24px}
+.pbar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.pbar.full i{background:var(--s-done)}
 .subt{border:0;background:none;padding:2px 0;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;min-height:32px}
 .subt .mini{flex:1;height:6px;background:var(--bg);border-radius:99px;overflow:hidden;min-width:40px}
 .subt .mini i{display:block;height:100%;background:var(--accent);border-radius:99px}
@@ -121,9 +134,6 @@ th,td{text-align:left;padding:14px 16px;border-top:1px solid var(--line);vertica
 th{font-weight:600;color:var(--muted);font-size:13px;border-top:0}
 td label{display:inline-flex;gap:6px;align-items:center;margin-right:14px;white-space:nowrap}
 td input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
-.owner{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
-.owner select{flex:1;min-width:0;min-height:40px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:14px;font-weight:600}
-.owner b{color:var(--ink);font-weight:600}
 .tg-ok{color:var(--s-done);font-size:14px;font-weight:600}
 .hint{color:var(--muted);font-size:14px}
 .howto{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:22px;font-size:15px}
@@ -243,14 +253,15 @@ function viewProject(){
   const open=ns.filter(n=>!n.done),closed=ns.filter(n=>n.done);
   const links=linksOf(p.id);
   return`<div class="phead"><div><h1>${esc(p.name)}</h1>${p.archived_at?'<span class="archived">В архиве</span>':''}</div><div class="progress">${pct(p.id)}%<small>готовности</small></div></div>
+  <div class="pbar ${pct(p.id)===100?'full':''}"><i style="width:${pct(p.id)}%"></i></div>
   <div class="links">${links.map(l=>`<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}${u.is_admin||l.created_by===u.id?`<button class="x" data-act="dellink" data-id="${l.id}" aria-label="Убрать ссылку ${esc(l.label)}">✕</button>`:''}</a>`).join('')}
   <button class="link addlink" data-act="addlink">+ Ссылка</button></div>
-  <div class="stages">${stagesOf(p.id).map(s=>`<section class="stage">
-    <div class="name">${STAGES[s.position]}</div>
-    <div class="track k${s.step}"><div class="tname">${stepName(s.position,s.step)}<small>${s.step+1}/5</small></div>
-      <div class="steps" role="group" aria-label="Статус: ${STAGES[s.position]}">${[0,1,2,3,4].map(k=>`<button class="${k<=s.step?'on':''}" data-act="st" data-id="${s.id}" data-v="${k}" title="${stepName(s.position,k)}" aria-label="${stepName(s.position,k)}" aria-pressed="${s.step===k}" ${u.is_admin?'':'disabled'}></button>`).join('')}</div></div>
-    ${owner(s,p,u)}
-    <input data-act="cm" data-id="${s.id}" value="${esc(s.comment)}" placeholder="${u.is_admin?'Комментарий':''}" ${u.is_admin?'':'disabled'} aria-label="Комментарий: ${STAGES[s.position]}">
+  <div class="stages">${stagesOf(p.id).map(s=>`<section class="stage k${s.step}">
+    <div class="shead"><div class="name">${STAGES[s.position]}</div>${owner(s,p,u)}</div>
+    <div class="track"><div class="tname">${stepName(s.position,s.step)}</div>
+      <div class="steps" role="group" aria-label="Статус: ${STAGES[s.position]}">${[1,2,3,4].map(k=>`<button class="${k<=s.step?'on':''}" data-act="st" data-id="${s.id}" data-v="${k}" title="${stepName(s.position,k)}" aria-label="${stepName(s.position,k)}" aria-pressed="${s.step===k}" ${u.is_admin?'':'disabled'}></button>`).join('')}</div></div>
+    ${u.is_admin?`<input class="cm" data-act="cm" data-id="${s.id}" value="${esc(s.comment)}" placeholder="Добавить комментарий" aria-label="Комментарий: ${STAGES[s.position]}">`
+      :s.comment?`<p class="cm">${esc(s.comment)}</p>`:''}
     ${subtasks(s,u)}
   </section>`).join('')}</div>
   <h2>Заметки</h2>
@@ -299,7 +310,7 @@ function viewAll(){
     const foot=[toMe?`заметок тебе: ${toMe}`:'',pend?`на проверке: ${pend}`:''].filter(Boolean).join(' · ');
     return`<button class="pcard" data-act="proj" data-id="${p.id}">
       <div class="head"><b>${esc(p.name)}</b><span>${pct(p.id)}%</span></div>
-      ${sts.map(s=>`<div class="row k${s.step}"><span>${STAGES[s.position]}</span><div class="bar">${[0,1,2,3,4].map(k=>`<i class="${k<=s.step?'on':''}"></i>`).join('')}</div><em>${esc(stepName(s.position,s.step))}</em></div>`).join('')}
+      ${sts.map(s=>`<div class="row k${s.step}"><span>${STAGES[s.position]}</span><div class="bar">${[1,2,3,4].map(k=>`<i class="${k<=s.step?'on':''}"></i>`).join('')}</div><em>${esc(stepName(s.position,s.step))}</em></div>`).join('')}
       ${foot?`<div class="foot">${foot}</div>`:''}</button>`}).join('')}</div>`:`<p class="empty">Все проекты в архиве.</p>`}`;
 }
 function note(n,p,u){
@@ -317,17 +328,19 @@ function note(n,p,u){
 }
 function owner(s,p,u){
   const o=s.owner_id?M(s.owner_id):null;
-  if(!u.is_admin)return o?`<div class="owner"><span>Отвечает</span><b>${esc(o.name)}</b></div>`:'';
+  if(!u.is_admin)return o?`<span class="chip" title="Отвечает">${esc(o.name)}</span>`:'';
   const list=people(p.id);if(o&&!list.includes(o))list.push(o);
-  return`<label class="owner"><span>Отвечает</span><select data-act="own" data-id="${s.id}" aria-label="Ответственный: ${STAGES[s.position]}"><option value="">—</option>${list.map(m=>`<option value="${m.id}" ${m.id===s.owner_id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></label>`;
+  return`<select class="chip${o?'':' none'}" data-act="own" data-id="${s.id}" title="Отвечает" aria-label="Ответственный: ${STAGES[s.position]}"><option value="">Назначить</option>${list.map(m=>`<option value="${m.id}" ${m.id===s.owner_id?'selected':''}>${esc(m.name)}</option>`).join('')}</select>`;
 }
 function subtasks(s,u){
   // В счётчик идут только подтверждённые админом; отметки участников — «на проверке».
   const ts=tasksOf(s.id),n=ts.length,d=ts.filter(t=>t.verified).length,q=ts.filter(t=>t.done&&!t.verified).length,open=ui.open[s.id];
   if(!n&&!u.is_admin)return'';
-  return`<button class="subt" data-act="toggle" data-id="${s.id}" aria-expanded="${!!open}">${n?`Подзадачи ${d}/${n}${q?` <span class="pend">· ${q} на проверке</span>`:''}`:'Подзадачи'}<span class="mini"><i style="width:${n?d/n*100:0}%"></i></span>${open?'▴':'▾'}</button>
+  const head=n?`Подзадачи ${d}/${n}${q?` <span class="pend">· ${q} на проверке</span>`:''}<span class="mini"><i style="width:${d/n*100}%"></i></span>${open?'▴':'▾'}`
+    :open?'Скрыть':'+ Подзадача';
+  return`<div class="foot"><button class="subt" data-act="toggle" data-id="${s.id}" aria-expanded="${!!open}">${head}</button>
   ${open?`<div class="tasks">${ts.map(t=>task(t,u)).join('')}
-  ${u.is_admin?`<form data-act="addtask" data-id="${s.id}"><input name="t" placeholder="Новая подзадача" aria-label="Новая подзадача"><button class="btn" type="submit">+</button></form>`:''}</div>`:''}`;
+  ${u.is_admin?`<form data-act="addtask" data-id="${s.id}"><input name="t" placeholder="Новая подзадача" aria-label="Новая подзадача"><button class="btn" type="submit">+</button></form>`:''}</div>`:''}</div>`;
 }
 function task(t,u){
   const pending=t.done&&!t.verified;
@@ -373,7 +386,8 @@ document.addEventListener('click',async e=>{
     if(w)w.location.href=url;else location.href=url;
     ui.tgWait=true}
   else if(a==='tgoff'){D.me.tg_chat_id=null;D.me.tg_username=null;render();run(sb.rpc('tg_unlink'))}
-  else if(a==='st'){const s=D.stages.find(x=>x.id===id);s.step=+el.dataset.v;render();
+  // Нажатие на текущее деление откатывает на шаг назад: так можно вернуть и «Не начато».
+  else if(a==='st'){const s=D.stages.find(x=>x.id===id),k=+el.dataset.v;s.step=s.step===k?k-1:k;render();
     run(sb.from('stages').update({step:s.step}).eq('id',id))}
   else if(a==='deltask'){e.preventDefault();D.subtasks=D.subtasks.filter(t=>t.id!==id);render();
     run(sb.from('subtasks').delete().eq('id',id))}
