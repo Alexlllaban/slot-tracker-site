@@ -66,6 +66,11 @@ h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .tasks label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
 .tasks input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);margin-top:2px}
 .tasks label.d span{color:var(--muted);text-decoration:line-through}
+.tasks em{font-style:normal;font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap;margin-left:4px}
+.subt .pend{color:var(--accent)}
+.vrow{display:flex;gap:6px;padding-left:28px;margin:-2px 0 4px}
+.vrow .btn{min-height:36px;font-size:13px}
+.vrow .btn.ok{border-color:var(--s-done);color:var(--s-done)}
 .tasks form{display:flex;gap:6px;margin-top:4px}
 .tasks form input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--bg);font-size:14px;color:var(--ink)}
 .compose{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
@@ -78,6 +83,10 @@ h2{font-weight:700;font-size:20px;letter-spacing:-.01em;margin:0 0 14px}
 .btn.ghost{border-color:transparent;background:none;color:var(--muted);min-height:36px;padding:0 8px}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
 .note.done{opacity:.5}
+.note .acts{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 -6px -8px}
+.note .acts .btn{min-height:36px;font-size:13px}
+.note .acts .btn.primary{margin-left:8px}
+.note textarea{width:100%;min-height:90px;resize:vertical;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .note .body{flex:1;min-width:0}
 .note .meta{font-size:13px;color:var(--muted)}
 .note .meta b{color:var(--ink);font-weight:700}
@@ -122,7 +131,7 @@ const CFG_OK=!!(window.SUPABASE_URL&&window.SUPABASE_ANON_KEY)&&!/YOUR_/.test(wi
 const sb=CFG_OK&&window.supabase?window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY):null;
 
 let uid=null,D=null;
-const ui={ready:false,view:'project',pid:new URLSearchParams(location.search).get('p'),open:{},sent:null,error:null};
+const ui={edit:null,showDone:{},ready:false,view:'project',pid:new URLSearchParams(location.search).get('p'),open:{},sent:null,error:null};
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
 // ---------- данные ----------
@@ -194,7 +203,8 @@ function viewLogin(){
 function viewProject(){
   const p=P(ui.pid),u=D.me;
   if(!p)return`<p class="empty">${u.is_admin?'Проектов пока нет. Создай первый в меню.':'Вам пока не открыт ни один проект.'}</p>`;
-  const ns=D.notes.filter(n=>n.project_id===p.id).sort((a,b)=>(a.done-b.done)||b.created_at.localeCompare(a.created_at));
+  const ns=D.notes.filter(n=>n.project_id===p.id).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  const open=ns.filter(n=>!n.done),closed=ns.filter(n=>n.done);
   const links=linksOf(p.id);
   return`<div class="phead"><h1>${esc(p.name)}</h1><div class="progress">${pct(p.id)}%<small>готовности</small></div></div>
   <div class="links">${links.map(l=>`<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}${u.is_admin||l.created_by===u.id?`<button class="x" data-act="dellink" data-id="${l.id}" aria-label="Убрать ссылку ${esc(l.label)}">✕</button>`:''}</a>`).join('')}
@@ -212,11 +222,24 @@ function viewProject(){
     <select name="to" aria-label="Кому"><option value="">Всем</option>${people(p.id).filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
     <button class="btn primary" type="submit">Отправить</button>
   </form>
-  ${ns.length?ns.map(n=>`<div class="note ${n.done?'done':''}"><div class="body">
-    <div class="meta"><b>${esc(M(n.author_id)?.name||'Удалённый участник')}</b> → <span class="${n.to_id===u.id?'tome':''}">${n.to_id?esc(M(n.to_id)?.name||'?'):'всем'}</span>, ${fmt(n.created_at)}</div>
-    <p>${esc(n.text)}</p></div>
-    <button class="btn ghost" data-act="done" data-id="${n.id}">${n.done?'Вернуть':'Готово'}</button></div>`).join(''):`<p class="empty">Заметок пока нет.</p>`}
+  ${!ns.length?`<p class="empty">Заметок пока нет.</p>`:!open.length?`<p class="empty">Открытых заметок нет.</p>`:''}
+  ${open.map(n=>note(n,p,u)).join('')}
+  ${closed.length?`<button class="btn ghost" data-act="showdone" data-id="${p.id}" style="padding-left:0">${ui.showDone[p.id]?'Скрыть закрытые':`Показать закрытые (${closed.length})`}</button>
+  ${ui.showDone[p.id]?closed.map(n=>note(n,p,u)).join(''):''}`:''}
   ${u.is_admin?`<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:32px"><button class="btn ghost" data-act="renproj" style="padding-left:0">Переименовать проект</button><button class="btn ghost" data-act="delproj">Удалить проект</button></div>`:''}`;
+}
+function note(n,p,u){
+  const mine=n.author_id===u.id,canReply=!mine&&people(p.id).some(m=>m.id===n.author_id);
+  if(ui.edit===n.id)return`<form class="note" data-act="editnote" data-id="${n.id}"><div class="body">
+    <textarea name="text" required aria-label="Текст заметки">${esc(n.text)}</textarea>
+    <div class="acts"><button class="btn primary" type="submit">Сохранить</button><button class="btn ghost" type="button" data-act="canceledit">Отмена</button></div></div></form>`;
+  const acts=(canReply?`<button class="btn ghost" data-act="reply" data-id="${n.author_id}">Ответить</button>`:'')
+    +(mine?`<button class="btn ghost" data-act="editnote" data-id="${n.id}">Изменить</button>`:'')
+    +(mine||u.is_admin?`<button class="btn ghost" data-act="delnote" data-id="${n.id}">Удалить</button>`:'');
+  return`<div class="note ${n.done?'done':''}"><div class="body">
+    <div class="meta"><b>${esc(M(n.author_id)?.name||'Удалённый участник')}</b> → <span class="${n.to_id===u.id?'tome':''}">${n.to_id?esc(M(n.to_id)?.name||'?'):'всем'}</span>, ${fmt(n.created_at)}${n.edited_at?' · изменено':''}</div>
+    <p>${esc(n.text)}</p>${acts?`<div class="acts">${acts}</div>`:''}</div>
+    <button class="btn ghost" data-act="done" data-id="${n.id}">${n.done?'Вернуть':'Готово'}</button></div>`;
 }
 function owner(s,p,u){
   const o=s.owner_id?M(s.owner_id):null;
@@ -225,11 +248,17 @@ function owner(s,p,u){
   return`<label class="owner"><span>Отвечает</span><select data-act="own" data-id="${s.id}" aria-label="Ответственный: ${STAGES[s.position]}"><option value="">—</option>${list.map(m=>`<option value="${m.id}" ${m.id===s.owner_id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></label>`;
 }
 function subtasks(s,u){
-  const ts=tasksOf(s.id),n=ts.length,d=ts.filter(t=>t.done).length,open=ui.open[s.id];
+  // В счётчик идут только подтверждённые админом; отметки участников — «на проверке».
+  const ts=tasksOf(s.id),n=ts.length,d=ts.filter(t=>t.verified).length,q=ts.filter(t=>t.done&&!t.verified).length,open=ui.open[s.id];
   if(!n&&!u.is_admin)return'';
-  return`<button class="subt" data-act="toggle" data-id="${s.id}" aria-expanded="${!!open}">${n?`Подзадачи ${d}/${n}`:'Подзадачи'}<span class="mini"><i style="width:${n?d/n*100:0}%"></i></span>${open?'▴':'▾'}</button>
-  ${open?`<div class="tasks">${ts.map(t=>`<label class="${t.done?'d':''}"><input type="checkbox" data-act="tk" data-id="${t.id}" ${t.done?'checked':''}><span>${esc(t.text)}</span>${u.is_admin?`<button class="btn ghost" data-act="deltask" data-id="${t.id}" aria-label="Удалить" style="margin-left:auto;padding:0 4px">✕</button>`:''}</label>`).join('')}
+  return`<button class="subt" data-act="toggle" data-id="${s.id}" aria-expanded="${!!open}">${n?`Подзадачи ${d}/${n}${q?` <span class="pend">· ${q} на проверке</span>`:''}`:'Подзадачи'}<span class="mini"><i style="width:${n?d/n*100:0}%"></i></span>${open?'▴':'▾'}</button>
+  ${open?`<div class="tasks">${ts.map(t=>task(t,u)).join('')}
   ${u.is_admin?`<form data-act="addtask" data-id="${s.id}"><input name="t" placeholder="Новая подзадача" aria-label="Новая подзадача"><button class="btn" type="submit">+</button></form>`:''}</div>`:''}`;
+}
+function task(t,u){
+  const pending=t.done&&!t.verified;
+  return`<label class="${t.verified?'d':pending?'p':''}"><input type="checkbox" data-act="tk" data-id="${t.id}" ${t.done?'checked':''} ${t.verified&&!u.is_admin?'disabled':''}><span>${esc(t.text)}${pending?' <em>на проверке</em>':''}</span>${u.is_admin?`<button class="btn ghost" data-act="deltask" data-id="${t.id}" aria-label="Удалить" style="margin-left:auto;padding:0 4px">✕</button>`:''}</label>
+  ${pending&&u.is_admin?`<div class="vrow"><button class="btn ok" data-act="verify" data-id="${t.id}">✓ Подтвердить</button><button class="btn ghost" data-act="reject" data-id="${t.id}">Вернуть</button></div>`:''}`;
 }
 function viewMembers(){
   return`<div class="phead"><h1>Доступ</h1></div>
@@ -270,6 +299,17 @@ document.addEventListener('click',async e=>{
     if(r){D.links.push(r);render()}}
   else if(a==='dellink'){e.preventDefault();D.links=D.links.filter(l=>l.id!==id);render();
     run(sb.from('links').delete().eq('id',id))}
+  else if(a==='showdone'){ui.showDone[id]=!ui.showDone[id];render()}
+  else if(a==='reply'){const f=document.querySelector('form[data-act=note]');f.elements.to.value=id;
+    f.scrollIntoView({behavior:'smooth',block:'center'});f.elements.text.focus({preventScroll:true})}
+  else if(a==='editnote'){ui.edit=id;render();document.querySelector('form[data-act=editnote] textarea')?.focus()}
+  else if(a==='canceledit'){ui.edit=null;render()}
+  else if(a==='delnote'){if(!confirm('Удалить заметку?'))return;
+    D.notes=D.notes.filter(n=>n.id!==id);render();run(sb.from('notes').delete().eq('id',id))}
+  else if(a==='verify'){e.preventDefault();const t=D.subtasks.find(x=>x.id===id);t.verified=true;render();
+    run(sb.from('subtasks').update({verified:true}).eq('id',id))}
+  else if(a==='reject'){e.preventDefault();const t=D.subtasks.find(x=>x.id===id);t.done=false;t.verified=false;render();
+    run(sb.from('subtasks').update({done:false}).eq('id',id))}
   else if(a==='done'){const n=D.notes.find(x=>x.id===id);n.done=!n.done;render();
     run(sb.from('notes').update({done:n.done}).eq('id',id))}
   else if(a==='rm'){if(!confirm('Убрать доступ этому человеку?'))return;
@@ -288,8 +328,10 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('change',e=>{
   const el=e.target,a=el.dataset.act,id=el.dataset.id;
-  if(a==='tk'){const t=D.subtasks.find(x=>x.id===id);t.done=el.checked;render();
-    run(sb.from('subtasks').update({done:t.done}).eq('id',id))}
+  if(a==='tk'){const t=D.subtasks.find(x=>x.id===id),adm=D.me.is_admin;
+    // Отметка админа сразу подтверждена, отметка участника уходит на проверку.
+    t.done=el.checked;t.verified=adm&&el.checked;render();
+    run(sb.from('subtasks').update(adm?{done:t.done,verified:t.verified}:{done:t.done}).eq('id',id))}
   else if(a==='own'){const s=D.stages.find(x=>x.id===id);s.owner_id=el.value||null;
     run(sb.from('stages').update({owner_id:s.owner_id}).eq('id',id))}
   else if(a==='cm'){D.stages.find(x=>x.id===id).comment=el.value;
@@ -310,6 +352,10 @@ document.addEventListener('submit',async e=>{
   else if(a==='note'){const text=String(fd.get('text')||'').trim();if(!text)return;btn.disabled=true;
     const r=await run(sb.from('notes').insert({project_id:ui.pid,to_id:fd.get('to')||null,text}).select().single());
     if(r){D.notes.unshift(r);render();toast('Заметка добавлена')}else btn.disabled=false}
+  else if(a==='editnote'){const n=D.notes.find(x=>x.id===f.dataset.id),text=String(fd.get('text')||'').trim();
+    if(!text)return;ui.edit=null;
+    if(text!==n.text){n.text=text;n.edited_at=new Date().toISOString();run(sb.from('notes').update({text}).eq('id',n.id))}
+    render()}
   else if(a==='addtask'){const text=String(fd.get('t')||'').trim();if(!text)return;btn.disabled=true;
     const r=await run(sb.from('subtasks').insert({stage_id:f.dataset.id,text}).select().single());
     if(r){D.subtasks.push(r);ui.open[f.dataset.id]=true;render()}else btn.disabled=false}});
