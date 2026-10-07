@@ -91,6 +91,9 @@ th,td{text-align:left;padding:14px 16px;border-top:1px solid var(--line);vertica
 th{font-weight:600;color:var(--muted);font-size:13px;border-top:0}
 td label{display:inline-flex;gap:6px;align-items:center;margin-right:14px;white-space:nowrap}
 td input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+.owner{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.owner select{flex:1;min-width:0;min-height:40px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:14px;font-weight:600}
+.owner b{color:var(--ink);font-weight:600}
 .tg-ok{color:var(--s-done);font-size:14px;font-weight:600}
 .hint{color:var(--muted);font-size:14px}
 .howto{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-top:22px;font-size:15px}
@@ -119,7 +122,7 @@ const CFG_OK=!!(window.SUPABASE_URL&&window.SUPABASE_ANON_KEY)&&!/YOUR_/.test(wi
 const sb=CFG_OK&&window.supabase?window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY):null;
 
 let uid=null,D=null;
-const ui={ready:false,view:'project',pid:null,open:{},sent:null,error:null};
+const ui={ready:false,view:'project',pid:new URLSearchParams(location.search).get('p'),open:{},sent:null,error:null};
 function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 
 // ---------- данные ----------
@@ -163,6 +166,8 @@ function render(){
   const u=D.me,vp=D.projects;
   if(ui.view==='members'&&!u.is_admin)ui.view='project';
   if(!vp.find(p=>p.id===ui.pid))ui.pid=vp[0]?.id;
+  // Адрес запоминает открытый проект: после F5 и по кнопке из Telegram попадаешь в него же.
+  if(ui.view==='project'&&ui.pid&&new URLSearchParams(location.search).get('p')!==ui.pid)history.replaceState(null,'',`?p=${ui.pid}`);
   app().className='app';
   app().innerHTML=`
   <aside>
@@ -192,11 +197,12 @@ function viewProject(){
   const ns=D.notes.filter(n=>n.project_id===p.id).sort((a,b)=>(a.done-b.done)||b.created_at.localeCompare(a.created_at));
   const links=linksOf(p.id);
   return`<div class="phead"><h1>${esc(p.name)}</h1><div class="progress">${pct(p.id)}%<small>готовности</small></div></div>
-  <div class="links">${links.map(l=>`<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}${u.is_admin?`<button class="x" data-act="dellink" data-id="${l.id}" aria-label="Убрать ссылку ${esc(l.label)}">✕</button>`:''}</a>`).join('')}
-  ${u.is_admin?`<button class="link addlink" data-act="addlink">+ Ссылка</button>`:''}</div>
+  <div class="links">${links.map(l=>`<a class="link" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}${u.is_admin||l.created_by===u.id?`<button class="x" data-act="dellink" data-id="${l.id}" aria-label="Убрать ссылку ${esc(l.label)}">✕</button>`:''}</a>`).join('')}
+  <button class="link addlink" data-act="addlink">+ Ссылка</button></div>
   <div class="stages">${stagesOf(p.id).map(s=>`<section class="stage s-${s.status}">
     <div class="name">${STAGES[s.position]}</div>
     <div class="seg" role="group" aria-label="Статус: ${STAGES[s.position]}">${Object.entries(ST).map(([k,v])=>`<button class="${k}" data-act="st" data-id="${s.id}" data-v="${k}" aria-pressed="${s.status===k}" ${u.is_admin?'':'disabled'}>${v}</button>`).join('')}</div>
+    ${owner(s,p,u)}
     <input data-act="cm" data-id="${s.id}" value="${esc(s.comment)}" placeholder="${u.is_admin?'Комментарий':''}" ${u.is_admin?'':'disabled'} aria-label="Комментарий: ${STAGES[s.position]}">
     ${subtasks(s,u)}
   </section>`).join('')}</div>
@@ -210,7 +216,13 @@ function viewProject(){
     <div class="meta"><b>${esc(M(n.author_id)?.name||'Удалённый участник')}</b> → <span class="${n.to_id===u.id?'tome':''}">${n.to_id?esc(M(n.to_id)?.name||'?'):'всем'}</span>, ${fmt(n.created_at)}</div>
     <p>${esc(n.text)}</p></div>
     <button class="btn ghost" data-act="done" data-id="${n.id}">${n.done?'Вернуть':'Готово'}</button></div>`).join(''):`<p class="empty">Заметок пока нет.</p>`}
-  ${u.is_admin?`<button class="btn ghost" data-act="delproj" style="margin-top:32px;padding-left:0">Удалить проект</button>`:''}`;
+  ${u.is_admin?`<div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:32px"><button class="btn ghost" data-act="renproj" style="padding-left:0">Переименовать проект</button><button class="btn ghost" data-act="delproj">Удалить проект</button></div>`:''}`;
+}
+function owner(s,p,u){
+  const o=s.owner_id?M(s.owner_id):null;
+  if(!u.is_admin)return o?`<div class="owner"><span>Отвечает</span><b>${esc(o.name)}</b></div>`:'';
+  const list=people(p.id);if(o&&!list.includes(o))list.push(o);
+  return`<label class="owner"><span>Отвечает</span><select data-act="own" data-id="${s.id}" aria-label="Ответственный: ${STAGES[s.position]}"><option value="">—</option>${list.map(m=>`<option value="${m.id}" ${m.id===s.owner_id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></label>`;
 }
 function subtasks(s,u){
   const ts=tasksOf(s.id),n=ts.length,d=ts.filter(t=>t.done).length,open=ui.open[s.id];
@@ -225,9 +237,9 @@ function viewMembers(){
   ${D.members.map(m=>`<tr><td>${esc(m.name)}${m.is_admin?' <span class="hint">админ</span>':''}</td>
    <td>${m.is_admin?'<span class="hint">все</span>':D.projects.length?D.projects.map(p=>`<label><input type="checkbox" data-act="mp" data-id="${m.id}" data-v="${p.id}" ${inProj(m.id,p.id)?'checked':''}>${esc(p.name)}</label>`).join(''):'<span class="hint">проектов нет</span>'}</td>
    <td>${m.tg_chat_id?`<span class="tg-ok">✓ ${m.tg_username?'@'+esc(m.tg_username):'подключён'}</span>`:'<span class="hint">не подключён</span>'}</td>
-   <td>${m.is_admin?'':`<button class="btn ghost" data-act="rm" data-id="${m.id}">Убрать</button>`}</td></tr>`).join('')}
+   <td style="white-space:nowrap"><button class="btn ghost" data-act="renmember" data-id="${m.id}">Переименовать</button>${m.is_admin?'':`<button class="btn ghost" data-act="rm" data-id="${m.id}">Убрать</button>`}</td></tr>`).join('')}
   </tbody></table></div>
-  <p class="hint">Статусы, комментарии и список подзадач меняешь только ты. Остальные видят открытые им проекты, пишут заметки и отмечают подзадачи.</p>`;
+  <p class="hint">Статусы, комментарии, ответственных и список подзадач меняешь только ты. Остальные видят открытые им проекты, пишут заметки, добавляют ссылки и отмечают подзадачи.</p>`;
 }
 
 // ---------- действия ----------
@@ -266,6 +278,10 @@ document.addEventListener('click',async e=>{
   else if(a==='delproj'){const p=P(ui.pid);
     if(!confirm(`Удалить проект «${p.name}» вместе с этапами, подзадачами, ссылками и заметками? Отменить будет нельзя.`))return;
     if(await run(sb.from('projects').delete().eq('id',p.id))){ui.pid=null;await refresh()}}
+  else if(a==='renproj'||a==='renmember'){
+    const [obj,table,ask]=a==='renproj'?[P(ui.pid),'projects','Новое название проекта']:[M(id),'members','Новое имя'];
+    const n=(prompt(ask,obj.name)||'').trim();if(!n||n===obj.name)return;
+    obj.name=n;render();run(sb.from(table).update({name:n}).eq('id',obj.id))}
   else if(a==='newproj'){const n=prompt('Название проекта');if(!n||!n.trim())return;
     const r=await run(sb.from('projects').insert({name:n.trim()}).select().single());
     if(r){ui.view='project';ui.pid=r.id;await refresh()}}
@@ -274,6 +290,8 @@ document.addEventListener('change',e=>{
   const el=e.target,a=el.dataset.act,id=el.dataset.id;
   if(a==='tk'){const t=D.subtasks.find(x=>x.id===id);t.done=el.checked;render();
     run(sb.from('subtasks').update({done:t.done}).eq('id',id))}
+  else if(a==='own'){const s=D.stages.find(x=>x.id===id);s.owner_id=el.value||null;
+    run(sb.from('stages').update({owner_id:s.owner_id}).eq('id',id))}
   else if(a==='cm'){D.stages.find(x=>x.id===id).comment=el.value;
     run(sb.from('stages').update({comment:el.value}).eq('id',id))}
   else if(a==='mp'){const v=el.dataset.v;
@@ -285,7 +303,7 @@ document.addEventListener('submit',async e=>{
   const f=e.target,fd=new FormData(f),a=f.dataset.act;e.preventDefault();
   const btn=f.querySelector('button[type=submit]');
   if(a==='login'){const email=String(fd.get('email')||'').trim();if(!email)return;btn.disabled=true;
-    const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
+    const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname+location.search}});
     btn.disabled=false;
     if(error){console.error(error);toast(error.status===429?'Слишком много попыток. Подожди немного':'Не получилось. Проверь адрес: вход только по приглашению');return}
     ui.sent=email;render()}
