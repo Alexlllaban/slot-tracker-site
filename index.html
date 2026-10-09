@@ -106,6 +106,16 @@ select.chip:hover{border-color:var(--accent)}
 .compose{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
 .compose textarea{flex:1 1 300px;min-height:48px;resize:vertical;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .compose select{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 12px;min-height:48px}
+.compose label.btn{display:inline-flex;align-items:center;min-height:48px}
+.compose input[type=file]{display:none}
+/* Картинки: превью перед отправкой и миниатюры в заметке */
+.pics{flex-basis:100%;display:flex;flex-wrap:wrap;gap:10px}
+.pics:empty{display:none}
+.pic{position:relative;width:76px;height:76px}
+.pic img{width:100%;height:100%;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.pic button{position:absolute;top:-8px;right:-8px;width:28px;height:28px;border-radius:99px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;font-size:12px;padding:0}
+.note .imgs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.note .imgs img{display:block;height:140px;max-width:100%;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--surface-2)}
 .btn{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 16px;min-height:44px;cursor:pointer;font-size:14px;font-weight:600}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
@@ -168,7 +178,9 @@ const sb=CFG_OK&&window.supabase?window.supabase.createClient(window.SUPABASE_UR
 
 let uid=null,D=null;
 const urlPid=()=>new URLSearchParams(location.search).get('p');
-const ui={edit:null,showDone:{},archOpen:false,hist:{},ready:false,view:urlPid()?'project':'all',pid:urlPid(),open:{},sent:null,error:null};
+const ui={edit:null,showDone:{},archOpen:false,hist:{},ready:false,view:urlPid()?'project':'all',pid:urlPid(),open:{},sent:null,error:null,
+  pics:{},draft:{},img:{}}; // pics/draft — несохранённая заметка по проектам, img — ссылки на картинки заметок
+const BUCKET='note-images',MAXPIC=5;
 // Если вход или данные не загрузились за 15 секунд, вместо вечной «Загрузки…» показываем, на каком шаге застряло.
 function watch(){clearTimeout(ui.wd);ui.slow=false;ui.wd=setTimeout(()=>{ui.slow=true;render()},15000)}
 const loading=step=>ui.slow?`<h1>Нет связи</h1><p>Не удаётся связаться с сервером. Проверь интернет или включи VPN.</p><p class="hint">Застряло на шаге: ${step}.</p><button class="btn primary" data-act="reload">Обновить</button>`
@@ -183,6 +195,53 @@ async function load(){
   const bad=r.find(x=>x.error);if(bad)throw bad.error;
   const [members,projects,pm,stages,subtasks,links,notes]=r.map(x=>x.data);
   D={members,projects,pm,stages,subtasks,links,notes,me:members.find(m=>m.id===uid)||null};
+  await sign(notes.flatMap(n=>n.images||[]));
+}
+// ---------- картинки заметок ----------
+// Хранилище закрытое: показываем по временным ссылкам на сутки.
+async function sign(paths){
+  const need=paths.filter(x=>!ui.img[x]);if(!need.length)return;
+  const {data,error}=await sb.storage.from(BUCKET).createSignedUrls(need,86400);
+  if(error)console.error(error);
+  (data||[]).forEach(x=>{if(x.signedUrl)ui.img[x.path]=x.signedUrl});
+}
+// Большие картинки ужимаем до 1920 px (JPEG), небольшие скриншоты оставляем как есть, чтобы текст был чётким.
+async function shrink(file){
+  if(file.type==='image/gif')return file;
+  try{
+    const b=await createImageBitmap(file),k=Math.min(1,1920/Math.max(b.width,b.height));
+    if(k===1&&file.size<=1.5e6&&/^image\/(png|jpeg|webp)$/.test(file.type)){b.close?.();return file}
+    const c=document.createElement('canvas');c.width=Math.round(b.width*k);c.height=Math.round(b.height*k);
+    const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(b,0,0,c.width,c.height);b.close?.();
+    return await new Promise(r=>c.toBlob(r,'image/jpeg',.85))||file;
+  }catch(e){console.error(e);return file}
+}
+// Загружает картинки в папку проекта и возвращает пути; при ошибке убирает уже загруженные.
+async function upload(pid,pics){
+  const paths=[];
+  try{
+    await Promise.all(pics.map(async(x,i)=>{
+      const b=await shrink(x.file),path=`${pid}/${crypto.randomUUID()}.${b.type==='image/jpeg'?'jpg':b.type.split('/')[1]}`;
+      const {error}=await sb.storage.from(BUCKET).upload(path,b,{contentType:b.type});
+      if(error)throw error;paths[i]=path}));
+    return paths;
+  }catch(e){
+    console.error(e);const done=paths.filter(Boolean);if(done.length)sb.storage.from(BUCKET).remove(done);
+    toast('Картинка не загрузилась. Попробуй ещё раз');return null}
+}
+function addPics(files){
+  const list=ui.pics[ui.pid]||=[];
+  for(const f of files){
+    if(!f||!f.type.startsWith('image/'))continue;
+    if(list.length>=MAXPIC){toast(`Не больше ${MAXPIC} картинок в заметке`);break}
+    list.push({file:f,url:URL.createObjectURL(f)})}
+  drawPics();
+}
+const picsHtml=()=>(ui.pics[ui.pid]||[]).map((x,i)=>`<div class="pic"><img src="${x.url}" alt=""><button type="button" data-act="unpic" data-i="${i}" aria-label="Убрать картинку">✕</button></div>`).join('');
+// Превью обновляем точечно, без render(): иначе пропадёт набранный текст и фокус.
+function drawPics(){
+  const f=document.querySelector('form[data-act=note]');if(!f)return;
+  f.querySelector('.pics').innerHTML=picsHtml();f.elements.text.required=!(ui.pics[ui.pid]||[]).length;
 }
 async function refresh(){
   if(!D)watch();
@@ -267,9 +326,11 @@ function viewProject(){
   </section>`).join('')}</div>
   <h2>Заметки</h2>
   <form class="compose" data-act="note">
-    <textarea name="text" placeholder="Написать заметку" required></textarea>
+    <textarea name="text" placeholder="Написать заметку (картинку можно вставить Ctrl+V)" ${(ui.pics[p.id]||[]).length?'':'required'}>${esc(ui.draft[p.id])}</textarea>
     <select name="to" aria-label="Кому"><option value="">Всем</option>${people(p.id).filter(m=>m.id!==u.id).map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select>
+    <label class="btn"><input type="file" accept="image/*" multiple data-act="pickpic">Картинка</label>
     <button class="btn primary" type="submit">Отправить</button>
+    <div class="pics">${picsHtml()}</div>
   </form>
   ${!ns.length?`<p class="empty">Заметок пока нет.</p>`:!open.length?`<p class="empty">Открытых заметок нет.</p>`:''}
   ${open.map(n=>note(n,p,u)).join('')}
@@ -317,14 +378,15 @@ function viewAll(){
 function note(n,p,u){
   const mine=n.author_id===u.id,canReply=!mine&&people(p.id).some(m=>m.id===n.author_id);
   if(ui.edit===n.id)return`<form class="note" data-act="editnote" data-id="${n.id}"><div class="body">
-    <textarea name="text" required aria-label="Текст заметки">${esc(n.text)}</textarea>
+    <textarea name="text" ${(n.images||[]).length?'':'required'} aria-label="Текст заметки">${esc(n.text)}</textarea>
     <div class="acts"><button class="btn primary" type="submit">Сохранить</button><button class="btn ghost" type="button" data-act="canceledit">Отмена</button></div></div></form>`;
   const acts=(canReply?`<button class="btn ghost" data-act="reply" data-id="${n.author_id}">Ответить</button>`:'')
     +(mine?`<button class="btn ghost" data-act="editnote" data-id="${n.id}">Изменить</button>`:'')
     +(mine||u.is_admin?`<button class="btn ghost" data-act="delnote" data-id="${n.id}">Удалить</button>`:'');
   return`<div class="note ${n.done?'done':''}"><div class="body">
     <div class="meta"><b>${esc(M(n.author_id)?.name||'Удалённый участник')}</b> → <span class="${n.to_id===u.id?'tome':''}">${n.to_id?esc(M(n.to_id)?.name||'?'):'всем'}</span>, ${fmt(n.created_at)}${n.edited_at?' · изменено':''}</div>
-    <p>${esc(n.text)}</p>${acts?`<div class="acts">${acts}</div>`:''}</div>
+    ${n.text?`<p>${esc(n.text)}</p>`:''}${(n.images||[]).length?`<div class="imgs">${n.images.filter(x=>ui.img[x]).map(x=>`<a href="${esc(ui.img[x])}" target="_blank" rel="noopener"><img src="${esc(ui.img[x])}" alt="Картинка" loading="lazy"></a>`).join('')}</div>`:''}
+    ${acts?`<div class="acts">${acts}</div>`:''}</div>
     <button class="btn ghost" data-act="done" data-id="${n.id}">${n.done?'Вернуть':'Готово'}</button></div>`;
 }
 function owner(s,p,u){
@@ -405,7 +467,10 @@ document.addEventListener('click',async e=>{
   else if(a==='editnote'){ui.edit=id;render();document.querySelector('form[data-act=editnote] textarea')?.focus()}
   else if(a==='canceledit'){ui.edit=null;render()}
   else if(a==='delnote'){if(!confirm('Удалить заметку?'))return;
-    D.notes=D.notes.filter(n=>n.id!==id);render();run(sb.from('notes').delete().eq('id',id))}
+    const imgs=D.notes.find(n=>n.id===id)?.images||[];
+    D.notes=D.notes.filter(n=>n.id!==id);render();
+    if(await run(sb.from('notes').delete().eq('id',id))&&imgs.length)sb.storage.from(BUCKET).remove(imgs)}
+  else if(a==='unpic'){const list=ui.pics[ui.pid]||[],x=list.splice(+el.dataset.i,1)[0];if(x)URL.revokeObjectURL(x.url);drawPics()}
   else if(a==='verify'){e.preventDefault();const t=D.subtasks.find(x=>x.id===id);t.verified=true;render();
     run(sb.from('subtasks').update({verified:true}).eq('id',id))}
   else if(a==='reject'){e.preventDefault();const t=D.subtasks.find(x=>x.id===id);t.done=false;t.verified=false;render();
@@ -417,7 +482,11 @@ document.addEventListener('click',async e=>{
     run(sb.from('members').delete().eq('id',id))}
   else if(a==='delproj'){const p=P(ui.pid);
     if(!confirm(`Удалить проект «${p.name}» вместе с этапами, задачами, ссылками и заметками? Отменить будет нельзя.`))return;
-    if(await run(sb.from('projects').delete().eq('id',p.id))){ui.pid=null;await refresh()}}
+    if(await run(sb.from('projects').delete().eq('id',p.id))){
+      // Заметки удалила база, картинки из хранилища убираем сами.
+      const {data:files}=await sb.storage.from(BUCKET).list(p.id,{limit:1000});
+      if(files?.length)await sb.storage.from(BUCKET).remove(files.map(f=>`${p.id}/${f.name}`));
+      ui.pid=null;await refresh()}}
   else if(a==='renproj'||a==='renmember'){
     const [obj,table,ask]=a==='renproj'?[P(ui.pid),'projects','Новое название проекта']:[M(id),'members','Новое имя'];
     const n=(prompt(ask,obj.name)||'').trim();if(!n||n===obj.name)return;
@@ -438,6 +507,18 @@ document.addEventListener('change',e=>{
     if(el.checked){D.pm.push({project_id:v,member_id:id});run(sb.from('project_members').insert({project_id:v,member_id:id}))}
     else{D.pm=D.pm.filter(x=>!(x.project_id===v&&x.member_id===id));run(sb.from('project_members').delete().eq('project_id',v).eq('member_id',id))}
     render()}
+  else if(a==='pickpic'){addPics([...el.files]);el.value=''}
+});
+// Набранный текст заметки переживает перерисовку страницы.
+document.addEventListener('input',e=>{if(e.target.matches('form[data-act=note] textarea'))ui.draft[ui.pid]=e.target.value});
+// Ctrl+V с картинкой в буфере: в поле заметки или просто на странице проекта.
+document.addEventListener('paste',e=>{
+  const f=document.querySelector('form[data-act=note]'),t=e.target;if(!f)return;
+  if(t!==f.elements.text&&t.closest?.('input,textarea,select,[contenteditable]'))return;
+  const files=[...(e.clipboardData?.items||[])].filter(i=>i.kind==='file'&&i.type.startsWith('image/')).map(i=>i.getAsFile());
+  if(!files.length)return;
+  if(!e.clipboardData.types.includes('text/plain'))e.preventDefault();
+  addPics(files);
 });
 document.addEventListener('submit',async e=>{
   const f=e.target,fd=new FormData(f),a=f.dataset.act;e.preventDefault();
@@ -447,11 +528,18 @@ document.addEventListener('submit',async e=>{
     btn.disabled=false;
     if(error){console.error(error);toast(error.status===429?'Слишком много попыток. Подожди немного':'Не получилось. Проверь адрес: вход только по приглашению');return}
     ui.sent=email;render()}
-  else if(a==='note'){const text=String(fd.get('text')||'').trim();if(!text)return;btn.disabled=true;
-    const r=await run(sb.from('notes').insert({project_id:ui.pid,to_id:fd.get('to')||null,text}).select().single());
-    if(r){D.notes.unshift(r);render();toast('Заметка добавлена')}else btn.disabled=false}
+  else if(a==='note'){const text=String(fd.get('text')||'').trim(),pid=ui.pid,pics=ui.pics[pid]||[];
+    if(!text&&!pics.length)return;btn.disabled=true;
+    // Картинки грузим до заметки: тогда уведомление в Telegram уйдёт уже с ними.
+    if(pics.length)btn.textContent='Загрузка…';
+    const images=pics.length?await upload(pid,pics):[];
+    if(!images){btn.disabled=false;btn.textContent='Отправить';return}
+    const r=await run(sb.from('notes').insert({project_id:pid,to_id:fd.get('to')||null,text,...(images.length?{images}:{})}).select().single());
+    if(r){pics.forEach(x=>URL.revokeObjectURL(x.url));delete ui.pics[pid];delete ui.draft[pid];
+      await sign(images);D.notes.unshift(r);render();toast('Заметка добавлена')}
+    else{if(images.length)sb.storage.from(BUCKET).remove(images);btn.disabled=false;btn.textContent='Отправить'}}
   else if(a==='editnote'){const n=D.notes.find(x=>x.id===f.dataset.id),text=String(fd.get('text')||'').trim();
-    if(!text)return;ui.edit=null;
+    if(!text&&!(n.images||[]).length)return;ui.edit=null;
     if(text!==n.text){n.text=text;n.edited_at=new Date().toISOString();run(sb.from('notes').update({text}).eq('id',n.id))}
     render()}
   else if(a==='addtask'){const text=String(fd.get('t')||'').trim();if(!text)return;btn.disabled=true;
